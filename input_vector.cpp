@@ -3,7 +3,14 @@
 #include <sstream>
 #include <algorithm>
 
-void input(std::vector<std::string>* primary, std::vector<std::string>* secondary, std::vector<std::vector<std::string>>* options) {
+struct INPUT_TABLE {
+  std::vector<std::string> primary;
+  std::vector<std::string> secondary;
+  std::vector<std::vector<std::string>> options;
+};
+typedef struct INPUT_TABLE input_table;
+
+void input(input_table* in_tb) {
   // input items
   std::string input_items;
   std::string input_options;
@@ -16,21 +23,21 @@ void input(std::vector<std::string>* primary, std::vector<std::string>* secondar
   bool is_primary = true;
   while (iss >> tmp) {
     // std::cout << tmp << std::endl;
-    if (std::find((*primary).begin(), (*primary).end(), tmp) != (*primary).end() || std::find((*secondary).begin(), (*secondary).end(), tmp) != (*secondary).end()) {
+    if (std::find(((*in_tb).primary).begin(), ((*in_tb).primary).end(), tmp) != ((*in_tb).primary).end() || std::find(((*in_tb).secondary).begin(), ((*in_tb).secondary).end(), tmp) != ((*in_tb).secondary).end()) {
       std::cerr << "item " << tmp << " is already exist!" << std::endl;
       exit(1);
     } else if (tmp == "|") {
-      if ((*primary).size() == 0 || !is_primary) {
-	std::cerr << "wrong input format" << std::endl;
+      if (((*in_tb).primary).size() == 0 || !is_primary) {
+	std::cerr << "wrong input format!" << std::endl;
 	exit(1);
       }
       // std::cout << "find \"|\"" << std::endl;
       is_primary = false;
       continue;
     } else if (is_primary) {
-      (*primary).push_back(tmp);
+      ((*in_tb).primary).push_back(tmp);
     } else {
-      (*secondary).push_back(tmp);
+      ((*in_tb).secondary).push_back(tmp);
     }
   }
 
@@ -39,14 +46,14 @@ void input(std::vector<std::string>* primary, std::vector<std::string>* secondar
   while (std::getline(std::cin, input_options)) {
     // std::cout << input_options << std::endl;
     std::vector<std::string> vtmp;
-    (*options).push_back(vtmp);
+    ((*in_tb).options).push_back(vtmp);
     std::istringstream iss(input_options);
     while (iss >> tmp) {
-      if (std::find((*primary).begin(), (*primary).end(), tmp) == (*primary).end() && std::find((*secondary).begin(), (*secondary).end(), tmp) == (*secondary).end()) {
+      if (std::find(((*in_tb).primary).begin(), ((*in_tb).primary).end(), tmp) == ((*in_tb).primary).end() && std::find(((*in_tb).secondary).begin(), ((*in_tb).secondary).end(), tmp) == ((*in_tb).secondary).end()) {
 	std::cerr << "item \"" << tmp << "\" is not found!" << std::endl;
 	exit(1);
       } else {
-	(*options)[i].push_back(tmp);
+	((*in_tb).options)[i].push_back(tmp);
       }
     }
     i++;
@@ -77,9 +84,8 @@ void print_options(std::vector<std::vector<std::string>> options) {
 }
 
 int main() {
-  std::vector<std::string> primary_item;
-  std::vector<std::string> secondary_item;
-  std::vector<std::vector<std::string>> options;
+  input_table in_tb;
+  input(&in_tb);
 
   /*
     input format
@@ -90,10 +96,8 @@ int main() {
     A E
    */
   
-  input(&primary_item, &secondary_item, &options);
-  
-  print_items(primary_item, secondary_item);
-  print_options(options);
+  print_items(in_tb.primary, in_tb.secondary);
+  print_options(in_tb.options);
   
 
   

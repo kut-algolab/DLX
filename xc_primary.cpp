@@ -35,36 +35,51 @@ void input(table* tb) {
   // input primary items
   std::getline(std::cin, input);
   // std::cout << "input items : " << input << std::endl;
-
+  
   std::istringstream iss(input);
+  bool exists_input = false;
   int link = 0; // link number
   while (iss >> in) {
+    // if item already exist
+    bool contains_item = (exists.end() != std::find(exists.begin(), exists.end(), in));
+    if (contains_item) {
+      std::cerr << "The item \"" << in << "\" already exists!" << std::endl;
+      exit(1);
+    }
     hnode tmp;
+    // add spacer to header
     if ((*tb).header.size() == 0) {
       tmp.name = "-";
       tmp.rlink = 1;
       (*tb).header.push_back(tmp);
+      exists_input = true;
     }
+    // add primary to header
     tmp.name = in;
     tmp.llink = link;
     tmp.rlink = ++link + 1;
     (*tb).header.push_back(tmp);
     exists.push_back(in);
   }
+  if (!exists_input) {
+    std::cerr << "missing input" << std::endl;
+    exit(1);
+  }
   (*tb).header[link].rlink = 0;
   (*tb).header[0].llink = link;
-
+  
+  // add primary to node
+  while ((*tb).node.size() <= (*tb).header.size()) {
+    tnode tmp;
+    tmp.top = 0; // this means len
+    tmp.ulink = -100; // init
+    tmp.dlink = -100;
+    (*tb).node.push_back(tmp);
+  }
+  
   // input options
   while (std::getline(std::cin, input)) {
     tnode tmp;
-    // add primary to node
-    while ((*tb).node.size() <= (*tb).header.size()) {
-      tmp.top = 0; // this means len
-      tmp.ulink = -100; // init
-      tmp.dlink = -100;
-      (*tb).node.push_back(tmp);
-    }
-    
     std::istringstream iss(input);
     // add option to node
     while (iss >> in) {
@@ -97,6 +112,12 @@ void input(table* tb) {
     }
     (*tb).node[x].dlink = (*tb).node[x].top;
     (*tb).node[i].ulink = x;
+  }
+  for (int i = 1; i < (*tb).header.size(); i++) {
+    if ((*tb).node[i].top == 0) {
+      std::cerr << "the total number of options must be at least the number of primary items." << std::endl;
+      exit(1);
+    }
   }
 }
 
@@ -195,10 +216,10 @@ void print_solution(table* tb, std::vector<int> x, int l) {
   std::cout << "====solution====" << std::endl;
   for (int i = 0; i < l; i++) {
     int buf = x[i];
-    while (0 <= (*tb).node[buf].top) {
+    while ((*tb).node[--buf].top > 0);
+    while ((*tb).node[++buf].top >= 0) {
       int opt = (*tb).node[buf].top;
       std::cout << (*tb).header[opt].name << " ";
-      buf++;
     }
     std::cout << std::endl;
   }

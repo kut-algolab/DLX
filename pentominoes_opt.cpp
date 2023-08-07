@@ -6,10 +6,10 @@
 void set_opt(std::unordered_set<std::string>* opt, std::vector<std::vector<bool>> o, std::string s) {
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 20; j++) {
-      // ３-i行以内に収まっているか
+      // 3-i行以内に収まっているか
       if (o.size() <= 3-i) {
 	// 20列以内に収まる場合
-	if (j+o[0].size() <= 20) {
+	if (o[0].size() <= 20-j) {
 	  std::string tmp;
 	  // 該当箇所を出力
 	  tmp += s;
@@ -40,12 +40,10 @@ std::vector<std::vector<bool>> rot90(std::vector<std::vector<bool>> original) {
 }
 
 std::vector<std::vector<bool>> rot180(std::vector<std::vector<bool>> original) {
-  std::vector<std::vector<bool>> rot;
   return rot90(rot90(original));
 }
 
 std::vector<std::vector<bool>> rot270(std::vector<std::vector<bool>> original) {
-  std::vector<std::vector<bool>> rot;
   return rot90(rot180(original));
 }
 

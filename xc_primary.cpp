@@ -8,15 +8,15 @@
 
 struct HNODE {
   std::string name;
-  int llink;
-  int rlink;
+  long long llink;
+  long long rlink;
 };
 typedef struct HNODE hnode;
 
 struct TNODE {
-  int top;  // if primary item, this mean len(x)
-  int ulink;
-  int dlink;
+  long long top;  // if primary item, this mean len(x)
+  long long ulink;
+  long long dlink;
 };
 typedef struct TNODE tnode;
 
@@ -38,7 +38,7 @@ void input(table* tb) {
   
   std::istringstream iss(input);
   bool exists_input = false;
-  int link = 0; // link number
+  long long link = 0; // link number
   while (iss >> in) {
     // if item already exist
     bool contains_item = (exists.end() != std::find(exists.begin(), exists.end(), in));
@@ -83,7 +83,7 @@ void input(table* tb) {
     std::istringstream iss(input);
     // add option to node
     while (iss >> in) {
-      int opt_num = std::distance(exists.begin(), std::find(exists.begin(), exists.end(), in))+1;
+      long long opt_num = std::distance(exists.begin(), std::find(exists.begin(), exists.end(), in))+1;
       tmp.top = opt_num;
       (*tb).node[opt_num].top++;
       while ((*tb).node[opt_num].dlink > 0) {
@@ -95,7 +95,7 @@ void input(table* tb) {
       (*tb).node[opt_num].dlink = (*tb).node.size()-1;
     }
     // add spacer to node
-    int s_num = (*tb).node.size()-1;
+    long long s_num = (*tb).node.size()-1;
     while ((*tb).node[s_num].top > 0) {
       s_num--;
     }
@@ -105,15 +105,19 @@ void input(table* tb) {
     (*tb).node[s_num].dlink = (*tb).node.size()-2;
   }
   // set dlink and ulink (post-processing)
-  for (int i = 1; i < (*tb).header.size(); i++) {
-    int x = i;
+
+  // first(!=0) spacer node top = 0
+  (*tb).node[(*tb).header.size()].top = 0;
+  
+  for (long long i = 1; i < (*tb).header.size(); i++) {
+    long long x = i;
     while ((*tb).node[x].dlink > 0) {
       x = (*tb).node[x].dlink;
     }
     (*tb).node[x].dlink = (*tb).node[x].top;
     (*tb).node[i].ulink = x;
   }
-  for (int i = 1; i < (*tb).header.size(); i++) {
+  for (long long i = 1; i < (*tb).header.size(); i++) {
     if ((*tb).node[i].top == 0) {
       std::cerr << "the total number of options must be at least the number of primary items." << std::endl;
       exit(1);
@@ -123,30 +127,33 @@ void input(table* tb) {
 
 void print_header(std::vector<hnode> header) {
   printf("print header \"(i) name llink rlink\"\n");
-  for (int i = 0; i < header.size(); i++) {
-    printf("(%d) %s %d %d\n", i, header[i].name.c_str(), header[i].llink, header[i].rlink);
+  for (long long i = 0; i < header.size(); i++) {
+    printf("(%lld) %s %lld %lld\n", i, header[i].name.c_str(), header[i].llink, header[i].rlink);
   }
   std::cout << std::endl;
 }
 
 void print_node(std::vector<tnode> node) {
   printf("print node\n");
-  for (int i = 0; i < node.size(); i++) {
-    printf("%4d", i);
+  long long print_size = 25; // number of prints per line
+  for (long long i = 0; i < node.size()/print_size +1; i++) {
+    for (long long j = print_size*i; j < print_size*(i+1) && j < node.size(); j++) {
+      printf("%7lld", j);
+    }
+    std::cout << std::endl;
+    for (long long j = print_size*i; j < print_size*(i+1) && j < node.size(); j++) {
+      printf("%7lld", node[j].top);
+    }
+    std::cout << std::endl;
+    for (long long j = print_size*i; j < print_size*(i+1) && j < node.size(); j++) {
+      printf("%7lld", node[j].ulink);
+    }
+    std::cout << std::endl;
+    for (long long j = print_size*i; j < print_size*(i+1) && j < node.size(); j++) {
+      printf("%7lld", node[j].dlink);
+    }
+    std::cout << std::endl << std::endl;;
   }
-  std::cout << std::endl;
-  for (int i = 0; i < node.size(); i++) {
-    printf("%4d", node[i].top);
-  }
-  std::cout << std::endl;
-  for (int i = 0; i < node.size(); i++) {
-    printf("%4d", node[i].ulink);
-  }
-  std::cout << std::endl;
-  for (int i = 0; i < node.size(); i++) {
-    printf("%4d", node[i].dlink);
-  }
-  std::cout << std::endl;
 }
 
 void print_table(table tb) {
@@ -154,12 +161,12 @@ void print_table(table tb) {
   print_node(tb.node);
 }
 
-void hide(table* tb, int p) {
-  int q = p+1;
+void hide(table* tb, long long p) {
+  long long q = p+1;
   while (q != p) {
-    int x = (*tb).node[q].top;
-    int u = (*tb).node[q].ulink;
-    int d = (*tb).node[q].dlink;
+    long long x = (*tb).node[q].top;
+    long long u = (*tb).node[q].ulink;
+    long long d = (*tb).node[q].dlink;
     if (x <= 0) {
       q = u;
     } else {
@@ -171,24 +178,24 @@ void hide(table* tb, int p) {
   }
 }
 
-void cover(table* tb, int i) {
-  int p = (*tb).node[i].dlink;
+void cover(table* tb, long long i) {
+  long long p = (*tb).node[i].dlink;
   while (p != i) {
     hide(tb, p);
     p = (*tb).node[p].dlink;
   }
-  int l = (*tb).header[i].llink;
-  int r = (*tb).header[i].rlink;
+  long long l = (*tb).header[i].llink;
+  long long r = (*tb).header[i].rlink;
   (*tb).header[l].rlink = r;
   (*tb).header[r].llink = l;
 }
 
-void unhide(table* tb, int p) {
-  int q = p-1;
+void unhide(table* tb, long long p) {
+  long long q = p-1;
   while (q != p) {
-    int x = (*tb).node[q].top;
-    int u = (*tb).node[q].ulink;
-    int d = (*tb).node[q].dlink;
+    long long x = (*tb).node[q].top;
+    long long u = (*tb).node[q].ulink;
+    long long d = (*tb).node[q].dlink;
     if (x <= 0) {
       q = d;
     } else {
@@ -200,25 +207,25 @@ void unhide(table* tb, int p) {
   }
 }
 
-void uncover(table* tb, int i) {
-  int l = (*tb).header[i].llink;
-  int r = (*tb).header[i].rlink;
+void uncover(table* tb, long long i) {
+  long long l = (*tb).header[i].llink;
+  long long r = (*tb).header[i].rlink;
   (*tb).header[l].rlink = i;
   (*tb).header[r].llink = i;
-  int p = (*tb).node[i].ulink;
+  long long p = (*tb).node[i].ulink;
   while(p != i) {
     unhide(tb, p);
     p = (*tb).node[p].ulink;
   }
 }
 
-void print_solution(table* tb, std::vector<int> x, int l) {
+void print_solution(table* tb, std::vector<long long> x, long long l) {
   std::cout << "====solution====" << std::endl;
-  for (int i = 0; i < l; i++) {
-    int buf = x[i];
+  for (long long i = 0; i < l; i++) {
+    long long buf = x[i];
     while ((*tb).node[--buf].top > 0);
     while ((*tb).node[++buf].top >= 0) {
-      int opt = (*tb).node[buf].top;
+      long long opt = (*tb).node[buf].top;
       std::cout << (*tb).header[opt].name << " ";
     }
     std::cout << std::endl;
@@ -227,9 +234,9 @@ void print_solution(table* tb, std::vector<int> x, int l) {
 
 
 void algo_x(table tb) {
-  int l, i, p, ptr;
-  std::vector<int> x(tb.header.size(), 0);
-  int c = 1; // case selecter
+  long long l, i, p, ptr;
+  std::vector<long long> x(tb.header.size(), 0);
+  long long c = 1; // case selecter
 
   while (c != -1) {
     switch (c) {
@@ -273,7 +280,7 @@ void algo_x(table tb) {
       } else {
 	p = x[l]+1;
 	while (p != x[l]) {
-	  int j = tb.node[p].top;
+	  long long j = tb.node[p].top;
 	  if (j <= 0) {
 	    p = tb.node[p].ulink;
 	  } else {
@@ -290,7 +297,7 @@ void algo_x(table tb) {
       // std::cout << "try again" << std::endl;
       p = x[l]-1;
       while (p != x[l]) {
-	int j = tb.node[p].top;
+	long long j = tb.node[p].top;
 	if (j <= 0) {
 	  p = tb.node[p].dlink;
 	} else {
@@ -323,10 +330,128 @@ void algo_x(table tb) {
   }
 }
 
+void print_dot(table tb) {
+  /*
+  std::cout << "digraph sample_graph {" << std::endl;
+  std::cout << "graph [charset = \"UTF-8\", rankdir = LR, margin = 0.2];" << std::endl;
+  std::cout << "node [shape = box, fontsize = 12, style = \"solid, filled\", fillcolor = \"#EFEFEF\"];" << std::endl;
+  
+  // header
+  long long r = tb.header[0].rlink;
+  std::cout << 0;
+  while(r != 0) {
+    std::cout << " -> " << r;
+    r = tb.header[r].rlink;
+  }
+  std::cout << " -> " << r << ";" << std::endl;
+  long long l = tb.header[0].llink;
+  std::cout << 0;
+  while (l != 0) {
+    std::cout << " -> " << l;
+    l = tb.header[l].llink;
+  }
+  std::cout << " -> " << l << ";" << std::endl;
+
+  // options
+  for (long long i = 1; i < tb.header.size(); i++) {
+    long long d = tb.node[i].dlink;
+    std::cout << i;
+    while (d != i) {
+      std::cout << " -> " << d;
+      d = tb.node[d].dlink;
+    }
+    std::cout << " -> " << d << ";" << std::endl;
+  }
+  for (long long i = 1; i < tb.header.size(); i++) {
+    long long u = tb.node[i].ulink;
+    std::cout << i;
+    while (u != i) {
+      std::cout << " -> " << u;
+      u = tb.node[u].ulink;
+    }
+    std::cout << " -> " << u << ";" << std::endl;
+  }
+
+  // ranked
+  for (long long i = 1; i < tb.header.size(); i++) {
+    long long d = tb.node[i].dlink;
+    std::cout << "{rank = same; " << i << "; ";
+    while (d != i) {
+      std::cout << d << "; ";
+      d = tb.node[d].dlink;
+    }
+    std::cout << "}" << std::endl;
+  }
+  
+  std::cout << "}" << std::endl;
+  */
+
+  std::cout << "digraph sample_graph {" << std::endl;
+  std::cout << "graph [charset = \"UTF-8\", newrank = true];" << std::endl;
+  std::cout << "node [shape = box, fontsize = 12, style = \"solid, filled\", fillcolor = \"#EFEFEF\"];" << std::endl;
+
+  long long r = tb.header[0].rlink;
+  std::cout << 0;
+  while(r != 0) {
+    std::cout << " -> " << r;
+    r = tb.header[r].rlink;
+  }
+  std::cout << " -> " << r << ";" << std::endl;
+  long long l = tb.header[0].llink;
+  std::cout << 0;
+  while (l != 0) {
+    std::cout << " -> " << l;
+    l = tb.header[l].llink;
+  }
+  std::cout << " -> " << l << ";" << std::endl;
+
+  
+  for (long long i = 1; i < tb.header.size(); i++) {
+    std::cout << "subgraph cluster_" << i << " {" << std::endl;
+    std::cout << "penwidth = 0;" << std::endl;
+    long long d = tb.node[i].dlink;
+    std::cout << i;
+    while (d != i) {
+      std::cout << " -> " << d;
+      d = tb.node[d].dlink;
+    }
+    std::cout << " -> " << d << ";" << std::endl;
+    long long u = tb.node[i].ulink;
+    std::cout << i;
+    while (u != i) {
+      std::cout << " -> " << u;
+      u = tb.node[u].ulink;
+    }
+    std::cout << " -> " << u << ";" << std::endl;
+    std::cout << "}" << std::endl;
+  }
+
+  std::cout << "{rank = same; ";
+  for (long long i = 0; i < tb.header.size(); i++) {
+    std::cout << i << "; ";
+  }
+  std::cout << "}" << std::endl;
+
+  long long tmp = tb.header.size()+1;
+  int i = 1;
+  while (tmp < tb.node.size()) {
+    std::cout << "{rank = " << i << ";";
+    for (;tb.node[tmp].top > 0; tmp++) {
+      std::cout << tmp << "; ";
+    }
+    std::cout << "}" << std::endl;
+    tmp++;
+    i++;
+  }
+  
+  
+  std::cout << "}" << std::endl;
+}
 
 int main() {
   table tb;
   input(&tb);
+  // print_dot(tb);
   // print_table(tb);
   algo_x(tb);
 }

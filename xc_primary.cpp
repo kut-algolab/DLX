@@ -331,61 +331,6 @@ void algo_x(table tb) {
 }
 
 void print_dot(table tb) {
-  /*
-  std::cout << "digraph sample_graph {" << std::endl;
-  std::cout << "graph [charset = \"UTF-8\", rankdir = LR, margin = 0.2];" << std::endl;
-  std::cout << "node [shape = box, fontsize = 12, style = \"solid, filled\", fillcolor = \"#EFEFEF\"];" << std::endl;
-  
-  // header
-  long long r = tb.header[0].rlink;
-  std::cout << 0;
-  while(r != 0) {
-    std::cout << " -> " << r;
-    r = tb.header[r].rlink;
-  }
-  std::cout << " -> " << r << ";" << std::endl;
-  long long l = tb.header[0].llink;
-  std::cout << 0;
-  while (l != 0) {
-    std::cout << " -> " << l;
-    l = tb.header[l].llink;
-  }
-  std::cout << " -> " << l << ";" << std::endl;
-
-  // options
-  for (long long i = 1; i < tb.header.size(); i++) {
-    long long d = tb.node[i].dlink;
-    std::cout << i;
-    while (d != i) {
-      std::cout << " -> " << d;
-      d = tb.node[d].dlink;
-    }
-    std::cout << " -> " << d << ";" << std::endl;
-  }
-  for (long long i = 1; i < tb.header.size(); i++) {
-    long long u = tb.node[i].ulink;
-    std::cout << i;
-    while (u != i) {
-      std::cout << " -> " << u;
-      u = tb.node[u].ulink;
-    }
-    std::cout << " -> " << u << ";" << std::endl;
-  }
-
-  // ranked
-  for (long long i = 1; i < tb.header.size(); i++) {
-    long long d = tb.node[i].dlink;
-    std::cout << "{rank = same; " << i << "; ";
-    while (d != i) {
-      std::cout << d << "; ";
-      d = tb.node[d].dlink;
-    }
-    std::cout << "}" << std::endl;
-  }
-  
-  std::cout << "}" << std::endl;
-  */
-
   std::cout << "digraph sample_graph {" << std::endl;
   std::cout << "graph [charset = \"UTF-8\", newrank = true];" << std::endl;
   std::cout << "node [shape = box, fontsize = 12, style = \"solid, filled\", fillcolor = \"#EFEFEF\"];" << std::endl;
@@ -405,6 +350,17 @@ void print_dot(table tb) {
   }
   std::cout << " -> " << l << ";" << std::endl;
 
+  std::cout << "subgraph cluster_0 {" << std::endl;
+  std::cout << "edge [style=invis]" << std::endl;
+  std::cout << "penwidth = 0" << std::endl;
+  std::cout << "0 -> opt_0";
+  for (long long i = 1; i < -1*(tb.node[tb.node.size()-1].top); i++) {
+    if (i == 2000) {
+      std::cout << ";" << std::endl << "opt_" << i-1;
+    }
+    std::cout << " -> opt_" << i;
+  }
+  std::cout << ";" << std::endl << "}" << std::endl;;
   
   for (long long i = 1; i < tb.header.size(); i++) {
     std::cout << "subgraph cluster_" << i << " {" << std::endl;
@@ -433,9 +389,9 @@ void print_dot(table tb) {
   std::cout << "}" << std::endl;
 
   long long tmp = tb.header.size()+1;
-  int i = 1;
+  int i = 0;
   while (tmp < tb.node.size()) {
-    std::cout << "{rank = " << i << ";";
+    std::cout << "{rank = same; opt_" << i << "; ";
     for (;tb.node[tmp].top > 0; tmp++) {
       std::cout << tmp << "; ";
     }

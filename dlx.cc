@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <unordered_set>
 
@@ -34,9 +35,33 @@ struct DLX {
   std::vector<node> nodes;
   
   /*** member functions ***/
+  void read_instance();
   void search(std::unordered_set<ullng> &R);
   DLX() {}
 };
+
+void DLX::read_instance() {
+  std::string line;
+
+  // read primary items
+  while (std::getline(std::cin, line)) {
+    // FIXME; we must remove leading white spaces
+    if ('|' == line[0]) continue;
+
+    std::string s;
+    std::unordered_set<std::string> items;
+    std::istringstream iss(line);
+    while (iss >> s) {
+      if (items.count(s)) {
+	std::cerr << "The item \"" << s << "\" already exists!\n";
+	exit(1);
+      }
+      items.insert(s);
+      // item itm(s, );
+    }
+    break;
+  }
+}
 
 void DLX::search(std::unordered_set<ullng> &R) {
   ;
@@ -45,5 +70,8 @@ void DLX::search(std::unordered_set<ullng> &R) {
 
 int main()
 {
+  DLX d;
+  d.read_instance();
+  
   return 0;
 }

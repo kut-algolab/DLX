@@ -31,15 +31,15 @@ struct node {
 
 struct item {
   std::string name;
-  llng llink;
-  llng rlink;
+  ullng llink;
+  ullng rlink;
 
   item(unsigned u = 0) : name("-"), llink(0), rlink(0) {} // header of items
   item(std::string n) :  name(n) {}
   item(std::string n, ullng prev, ullng next)
     : name(n), llink(prev), rlink(next) {}
-  void set_llink(llng prev) { llink = prev; }
-  void set_rlink(llng next) { rlink = next; }
+  void set_llink(ullng prev) { llink = prev; }
+  void set_rlink(ullng next) { rlink = next; }
 
   friend std::ostream& operator<<(std::ostream& ss, const item& itm) {
     ss << itm.name << " " << itm.llink << " " << itm.rlink;
@@ -62,10 +62,21 @@ struct DLX {
   void add_primary_to_header(std::string);
   void add_secondary_to_header(std::string);
   void set_header_items();
-  void search(std::unordered_set<ullng> &);
+
+  void cover(const ullng);
+  void hide(const ullng);
+  void uncover(const ullng);
+  void unhide(const ullng);
+
+  void search(std::vector<ullng> &);
+  llng select_item();
+  std::vector<std::vector<ullng>> collect_options(const ullng);
 
   void print_items();
   void print_nodes();
+  void print_option(ullng);
+  void print_options(std::vector<ullng> &);
+  void print_all_solutions();
   
   DLX() {
     item itm(0);
@@ -164,7 +175,7 @@ void DLX::read_instance() {
   
   // read options
   while (std::getline(std::cin, line)) {
-    std::cout << Z << ": " << line << std::endl;
+    // std::cout << Z << ": " << line << std::endl;
     if ('|' == line[0]) {
       continue;
     }
@@ -184,10 +195,132 @@ void DLX::read_instance() {
     
     // add spacer node
     node tmp(nodes[ptr_spacer].top-1, ptr_spacer+1, -100);
-    nodes[ptr_spacer].dlink = Z+1;
+    nodes[ptr_spacer].dlink = Z;
     nodes.push_back(tmp);
     ++Z;
     ptr_spacer = Z;
+  }
+}
+
+// select item i using the MRV heuristic
+// if there is item i to be covered and its len is 0, then return -1
+llng DLX::select_item() {
+  ullng ptr = items[0].rlink;
+  ullng i = items[0].rlink;
+  while (0 != ptr) {
+    if (nodes[ptr].top < nodes[i].top) i = ptr;
+    ptr = items[ptr].rlink;
+  }
+  if (0 == nodes[i].top) return -1;
+  return i;
+}
+
+std::vector<std::vector<ullng>> DLX::collect_options(const ullng i) {
+  std::vector<std::vector<ullng>> O;
+  llng p = nodes[i].dlink;
+  while (i != p) {
+    std::vector<ullng> o;
+    o.push_back(p);
+    ullng q = p+1;
+    while (p != q) {
+      if (nodes[q].top <= 0) {
+	q = nodes[q].ulink;
+	continue;
+      }
+      o.push_back(q);
+      q += 1;
+    }
+    O.push_back(o);
+    p = nodes[p].dlink;
+  }
+  return O;
+}
+
+void DLX::cover(const ullng i) {
+  // std::cout << "cover " << i << " : " << std::endl;
+  for (llng p = nodes[i].dlink; i != p; p = nodes[p].dlink) {
+    // std::cout << "p: " << p << std::endl;
+    hide(p);
+  }
+  ullng l = items[i].llink, r = items[i].rlink;
+  items[l].rlink = r;
+  items[r].llink = l;
+}
+
+void DLX::hide(const ullng p) {
+  for (ullng q = p+1; p != q; ) {
+    llng x = nodes[q].top;
+    ullng u = nodes[q].ulink;
+    ullng d = nodes[q].dlink;
+    if (x <= 0) q = u;
+    else {
+      nodes[u].dlink = d;
+      nodes[d].ulink = u;
+      nodes[x].top -= 1;
+      q += 1;
+    }
+  }
+}
+
+void DLX::uncover(const ullng i) {
+  // std::cout << "uncover " << i << std::endl;
+  ullng l = items[i].llink, r = items[i].rlink;
+  items[l].rlink = i;
+  items[r].llink = i;
+  for (llng p = nodes[i].ulink; i != p; p = nodes[p].ulink) unhide(p);
+}
+
+void DLX::unhide(const ullng p) {
+  // std::cout << "  unhide: " << p << std::endl;
+  for (ullng q = p-1; p != q; ) {
+    llng x = nodes[q].top;
+    ullng u = nodes[q].ulink;
+    ullng d = nodes[q].dlink;
+
+    if (x <= 0) q = d;
+    else {
+      nodes[d].ulink = q;
+      nodes[u].dlink = q;
+      nodes[x].top += 1;
+      q -= 1;
+    }
+  }
+}
+
+void DLX::search(std::vector<ullng> &R) {
+  // if no remaining items in items then output R and return
+  if (0 == items[0].rlink) {
+    print_options(R);
+    return;
+  }
+
+  // select item i
+  const llng i = select_item();
+  if (-1 == i) return;
+
+  // collect the set of remaining options having i
+  std::vector<std::vector<ullng>> O = collect_options(i);
+  for (auto X : O) {
+    // Only add the address of the first item in option X to R
+    R.push_back(X[0]);
+
+    for (auto j : X) {
+      // Delete column corresponding to item j;
+      // Delete all options having j;
+      cover(nodes[j].top);
+    }
+    // print_items();
+    // print_nodes();
+    
+    search(R);
+
+    for (auto j : X) {
+      // Restore all options having j;
+      // Restore column corresponding to item j;
+      uncover(nodes[j].top);
+    }
+    
+    R.pop_back();
   }
 }
 
@@ -210,17 +343,40 @@ void DLX::print_nodes() {
   }
 }
 
-void DLX::search(std::unordered_set<ullng> &R) {
-  ;
+void DLX::print_option(ullng p) {
+  std::cout << "{" << items[nodes[p].top].name;
+  for (ullng q = p+1; p != q; ) {
+    if (nodes[q].top <= 0) q = nodes[q].ulink;
+    else {
+      std::cout << ", " << items[nodes[q].top].name;
+      q += 1;
+    }
+  }
+  std::cout << "}";
 }
 
+void DLX::print_options(std::vector<ullng> &R) {
+  std::cout << "{";
+  print_option(R[0]);
+  for (ullng i = 1; i < R.size(); ++i) {
+    std::cout << ", ";
+    print_option(R[i]);
+  }
+  std::cout << "}" << std::endl;
+}
+
+void DLX::print_all_solutions() {
+  std::vector<ullng> R;
+  search(R);
+}
 
 int main()
 {
   DLX d;
   d.read_instance();
-  d.print_items();
-  d.print_nodes();
+  // d.print_items();
+  // d.print_nodes();
+  d.print_all_solutions();
   
   return 0;
 }

@@ -314,10 +314,11 @@ void DLX::search(std::vector<ullng> &R) {
     
     search(R);
 
-    for (auto j : X) {
+    for (auto j = X.rbegin(); j != X.rend(); ++j) {
+    // for (auto j : X) {
       // Restore all options having j;
       // Restore column corresponding to item j;
-      uncover(nodes[j].top);
+      uncover(nodes[*j].top);
     }
     
     R.pop_back();

@@ -1,5 +1,8 @@
-a.out : dlx.cc
-	g++ -std=c++17 -Wall -o a.out dlx.cc
+dlx : dlx.cc
+	clang++ -std=c++17 -Wall -o dlx dlx.cc
+
+dlc : dlc.cc
+	clang++ -std=c++17 -Wall -o dlc dlc.cc
 
 clean :
 	rm -rf a.out

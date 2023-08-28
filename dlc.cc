@@ -62,8 +62,10 @@ struct DLX {
   std::vector<item> items;
   std::vector<node> nodes;
   std::unordered_map<std::string, ullng> names;
-  // std::unordered_map<std::string, llng> colors;
   std::vector<std::string> colors;
+
+  ullng sols = 0; // # of solutions
+  bool print_flag = false;
   
   /*** member functions ***/
   void read_instance();
@@ -90,6 +92,7 @@ struct DLX {
   void print_option(ullng);
   void print_options(std::vector<ullng> &);
   void print_all_solutions();
+  ullng get_num_of_solutions() { return sols; };
   
   DLX() {
     item itm(0);
@@ -369,7 +372,8 @@ void DLX::unpurify(const ullng p) {
 void DLX::search(std::vector<ullng> &R) {
   // if no remaining items in items then output R and return
   if (0 == items[0].rlink) {
-    print_options(R);
+    if (print_flag) print_options(R);
+    sols += 1;
     return;
   }
 
@@ -460,6 +464,7 @@ void DLX::print_options(std::vector<ullng> &R) {
 
 void DLX::print_all_solutions() {
   std::vector<ullng> R;
+  print_flag = true;
   search(R);
 }
 
@@ -469,7 +474,10 @@ int main()
   d.read_instance();
   // d.print_items();
   // d.print_nodes();
-  d.print_all_solutions();
+  // d.print_all_solutions();
+  std::vector<ullng> R;
+  d.search(R);
+  std::cout << d.get_num_of_solutions() << std::endl;
   
   return 0;
 }

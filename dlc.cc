@@ -73,8 +73,13 @@ struct DLX {
 
   void cover(const ullng);
   void hide(const ullng);
+  void commit(const ullng, const ullng);
+  void purify(const ullng);
+  
   void uncover(const ullng);
   void unhide(const ullng);
+  void uncommit(const ullng, const ullng);
+  void unpurify(const ullng);
 
   void search(std::vector<ullng> &);
   llng select_item();
@@ -93,7 +98,7 @@ struct DLX {
     node node(0);
     nodes.push_back(node);
 
-    colors.push_back("0");
+    colors.push_back("-");
   }
 };
 
@@ -197,7 +202,7 @@ void DLX::read_instance() {
       std::string name = "";
       std::string color = "";
       int pos;
-      if (std::string::npos != (pos = std::string(s).find(':'))) {       // with color
+      if (std::string::npos != (pos = std::string(s).find(':'))) { // with color
 	for (int i = 0; i < pos; ++i) name += s[i];
 	for (int i = pos+1; i < s.size(); ++i) color += s[i];
 	// if (!colors.count(color)) {
@@ -284,6 +289,12 @@ void DLX::hide(const ullng p) {
     llng x = nodes[q].top;
     ullng u = nodes[q].ulink;
     ullng d = nodes[q].dlink;
+    
+    if (nodes[q].color < 0) {
+      q += 1;
+      continue;
+    }
+    
     if (x <= 0) q = u;
     else {
       nodes[u].dlink = d;
@@ -291,6 +302,22 @@ void DLX::hide(const ullng p) {
       nodes[x].top -= 1;
       q += 1;
     }
+  }
+}
+
+void DLX::commit(const ullng p, const ullng j) {
+  if (0 == nodes[p].color) cover(j);
+  if (0 < nodes[p].color) purify(p);
+}
+
+void DLX::purify(const ullng p) {
+  // std::cout << "  purify: " << p << std::endl;
+  const llng c = nodes[p].color;
+  const llng i = nodes[p].top;
+  nodes[i].color = c;
+  for (llng q = nodes[i].dlink; i != q; q = nodes[q].dlink) {
+    if (c == nodes[q].color) nodes[q].color = -1;
+    else hide(q);
   }
 }
 
@@ -309,6 +336,11 @@ void DLX::unhide(const ullng p) {
     ullng u = nodes[q].ulink;
     ullng d = nodes[q].dlink;
 
+    if (nodes[q].color < 0) {
+      q -= 1;
+      continue;
+    }
+    
     if (x <= 0) q = d;
     else {
       nodes[d].ulink = q;
@@ -316,6 +348,21 @@ void DLX::unhide(const ullng p) {
       nodes[x].top += 1;
       q -= 1;
     }
+  }
+}
+
+void DLX::uncommit(const ullng p, const ullng j) {
+  if (0 == nodes[p].color) uncover(j);
+  if (0 < nodes[p].color) unpurify(p);
+}
+
+void DLX::unpurify(const ullng p) {
+  // std::cout << "  unpurify: " << p << std::endl;
+  const llng c = nodes[p].color;
+  const llng i = nodes[p].top;
+  for (llng q = nodes[i].ulink; i != q; q = nodes[q].ulink) {
+    if (nodes[q].color < 0) nodes[q].color = c;
+    else unhide(q);
   }
 }
 
@@ -330,27 +377,26 @@ void DLX::search(std::vector<ullng> &R) {
   const llng i = select_item();
   if (-1 == i) return;
 
+  // std::cout << "select item " << i << std::endl;
+
   // collect the set of remaining options having i
   std::vector<std::vector<ullng>> O = collect_options(i);
   for (auto X : O) {
     // Only add the address of the first item in option X to R
     R.push_back(X[0]);
 
-    for (auto j : X) {
-      // Delete column corresponding to item j;
-      // Delete all options having j;
-      cover(nodes[j].top);
+    for (auto p : X) {
+      // std::cout << "commit: " << p << ", " << nodes[p].top << std::endl;
+      commit(p, nodes[p].top);
     }
     // print_items();
     // print_nodes();
     
     search(R);
 
-    for (auto j = X.rbegin(); j != X.rend(); ++j) {
-    // for (auto j : X) {
-      // Restore all options having j;
-      // Restore column corresponding to item j;
-      uncover(nodes[*j].top);
+    for (auto p = X.rbegin(); p != X.rend(); ++p) {
+      // std::cout << "uncommit: " << *p << ", " << nodes[*p].top << std::endl;
+      uncommit(*p, nodes[*p].top);
     }
     
     R.pop_back();
@@ -386,10 +432,16 @@ void DLX::print_nodes() {
 
 void DLX::print_option(ullng p) {
   std::cout << "{" << items[nodes[p].top].name;
+  if (0 != nodes[p].color) {
+    std::cout << ":" << colors[nodes[nodes[p].top].color];
+  }
   for (ullng q = p+1; p != q; ) {
     if (nodes[q].top <= 0) q = nodes[q].ulink;
     else {
       std::cout << ", " << items[nodes[q].top].name;
+      if (0 != nodes[q].color) {
+	std::cout << ":" << colors[nodes[nodes[q].top].color];
+      }
       q += 1;
     }
   }
@@ -416,8 +468,8 @@ int main()
   DLX d;
   d.read_instance();
   // d.print_items();
-  d.print_nodes();
-  // d.print_all_solutions();
+  // d.print_nodes();
+  d.print_all_solutions();
   
   return 0;
 }

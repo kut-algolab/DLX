@@ -9,6 +9,8 @@ typedef unsigned long long ullng;
 typedef long long llng;
 
 #define signbit (1ULL << 63)
+#define HASHSIZE 20000000
+#define CACHESIZE 20000000
 
 struct inx {
   int hash;
@@ -28,6 +30,10 @@ struct hashentry {
   int sig;
   int zddref;
 };
+
+hashentry hash[HASHSIZE];
+ullng cache[CACHESIZE];
+
 
 struct node {
   llng top;
@@ -88,12 +94,8 @@ struct DLZ {
   std::unordered_map<std::string, ullng> names;
   std::vector<std::string> colors;
 
-  unsigned HASHSIZE = 2000000000;
-  unsigned CACHESIZE = 2000000000;
   unsigned sigsiz = 0; // size of offset
   std::vector<inx> siginx;
-  std::vector<hashentry> hash;
-  std::vector<ullng> cache;
   
   /*** member functions ***/
   void read_instance();

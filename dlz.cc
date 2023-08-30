@@ -9,8 +9,8 @@ typedef unsigned long long ullng;
 typedef long long llng;
 
 #define signbit (1ULL << 63)
-#define HASHSIZE 20000000
-#define CACHESIZE 20000000
+#define HASHSIZE  20000000000
+#define CACHESIZE 20000000000
 
 struct inx {
   int hash;
@@ -31,8 +31,8 @@ struct hashentry {
   int zddref;
 };
 
-hashentry hash[HASHSIZE];
-ullng cache[CACHESIZE];
+hashentry *hash;
+ullng *cache;
 
 
 struct node {
@@ -560,9 +560,15 @@ int main()
 {
   DLZ d;
   d.read_instance();
-  d.print_items();
-  d.print_nodes();
   d.prepare_signature();
+
+  hash = (hashentry*)malloc(HASHSIZE * sizeof(hashentry));
+  if (NULL == hash) exit(1);
+  cache = (ullng*)malloc(CACHESIZE * sizeof(ullng));
+  if (NULL == cache) exit(1);
+  
+  // d.print_items();
+  // d.print_nodes();
   d.test_signature();
   // d.search();
   // std::cout << d.get_num_of_solutions() << std::endl;

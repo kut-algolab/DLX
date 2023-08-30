@@ -1,6 +1,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <cstdlib>
 #include <unordered_set>
 #include <unordered_map>
 
@@ -8,6 +9,23 @@ typedef unsigned long long ullng;
 typedef long long llng;
 
 #define signbit (1ULL << 63)
+
+struct inx {
+  int hash;
+  short code;
+  char shift;
+  std::string orig;
+
+  inx(int h, short c, char s, std::string o)
+    : hash(h), code(c), shift(s), orig(o) {};
+  inx(int h, short c, char s)
+    : hash(h), code(c), shift(s) { orig = "-"; };
+};
+
+struct hashentry {
+  int sig;
+  int zddref;
+};
 
 struct node {
   llng top;
@@ -41,8 +59,8 @@ struct item {
   std::string name;
   ullng llink;
   ullng rlink;
-  ullng sig;
-  ullng wd;
+  unsigned sig;
+  unsigned wd;
 
   item(unsigned u = 0) : name("-"), llink(0), rlink(0) {} // header of items
   item(std::string n) :  name(n) {}
@@ -68,6 +86,13 @@ struct DLZ {
   std::unordered_map<std::string, ullng> names;
   std::vector<std::string> colors;
 
+  unsigned HASHSIZE = 2000000000;
+  unsigned CACHESIZE = 2000000000;
+  unsigned sigsiz = 0; // size of offset
+  std::vector<inx> siginx;
+  std::vector<hashentry> hash;
+  std::vector<ullng> cache;
+  
   /*** member functions ***/
   void read_instance();
   void add_primary_to_header(std::string);
@@ -86,9 +111,11 @@ struct DLZ {
 
   void search();
   llng select_item();
-  ullng compute_signature();
   std::vector<std::vector<ullng>> collect_options(const ullng);
 
+  void prepare_signature();
+  ullng compute_signature();
+  
   void print_items();
   void print_nodes();
   void print_option(ullng);
@@ -104,6 +131,9 @@ struct DLZ {
     nodes.push_back(node);
 
     colors.push_back("-");
+
+    hash.resize(HASHSIZE);
+    cache.resize(CACHESIZE);
   }
 };
 
@@ -359,6 +389,52 @@ void DLZ::unpurify(const ullng p) {
   for (llng q = nodes[i].ulink; i != q; q = nodes[q].ulink) {
     if (nodes[q].color < 0) nodes[q].color = c;
     else unhide(q);
+  }
+}
+
+void DLZ::prepare_signature() {
+  int q = 1, r = 0, sigptr = 0;
+  std::vector<bool> usedcolor(colors.size(), false);
+  for (ullng k = N1+N2-1; 0 != k; --k) {
+    if (k <= N1) { // primary item
+      if (63 == r) ++q, r = 0;
+      inx tmp(rand(), 1, r);
+      siginx.push_back(tmp);
+      items[k].sig = sigptr;
+      ++sigptr;
+      items[k].wd = q;
+      ++r;
+    } else { // secondary item
+      if ((llng)k == nodes[k].dlink) { // this secondary items does not appear the instance
+	ullng l, r;
+	l = items[k].llink, r = items[k].rlink;
+	items[l].rlink = r, items[r].llink = l;
+	continue;
+      }
+      unsigned cc = 1;
+      for (ullng p = nodes[k].dlink; k != p; p = nodes[p].dlink) {
+	llng i = nodes[p].color;
+	if (0 != i) {
+	  bool flag = usedcolor[i];
+	  if (!flag) {
+	    usedcolor[i] = true;
+	    ++cc;
+	  }
+	}
+      }
+      unsigned t = 1;
+      for ( ; cc >= (1U << t); ++t);
+
+      if (r + t >= 63) ++q, r = 0;
+
+      for (unsigned i = 0; i < cc; ++i) {
+	inx tmp(rand(), 1+i, r, colors[i]);
+	siginx.push_back(tmp);
+	items[k].sig = sigptr, items[k].wd = q;
+      }
+      sigptr += cc;
+      r += t;
+    }
   }
 }
 

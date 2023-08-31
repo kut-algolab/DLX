@@ -9,7 +9,7 @@ typedef unsigned long long ullng;
 typedef long long llng;
 
 #define SIGNBIT (1ULL << 63)
-#define LOG_HASHSIZE 16
+#define LOG_HASHSIZE 30
 #define HASHSIZE  (1 << LOG_HASHSIZE)
 #define CACHESIZE (1 << LOG_HASHSIZE)
 #define HASHMASK ((1 << LOG_HASHSIZE) -1)
@@ -22,10 +22,10 @@ struct inx {
 
   inx(int h, short c, short s, std::string o)
     : hash(h), code(c), shift(s), orig(o) {};
-  /*
-    inx(int h, short c, char s)
-    : hash(h), code(c), shift(s) { orig = "-"; };
-  */
+  friend std::ostream& operator<<(std::ostream& ss, const inx& inx) {
+    ss << inx.hash << " " << inx.code << " " << inx.shift << " " << inx.orig;
+    return ss;
+  }
 };
 
 struct hashentry {
@@ -99,6 +99,7 @@ struct DLZ {
   unsigned sigsiz = 0; // size of offset
   std::vector<inx> siginx;
   unsigned cacheptr = 0;
+  int znode;
   
   /*** member functions ***/
   void read_instance();
@@ -284,12 +285,7 @@ void DLZ::read_instance() {
 // In order to obtain an ordered ZDD, select the left most item
 // if there is item i to be covered and its len is 0, then return -1
 llng DLZ::select_item() {
-  // ullng ptr = items[0].rlink;
   ullng i = items[0].rlink;
-  // while (0 != ptr) {
-  //   if (nodes[ptr].top < nodes[i].top) i = ptr;
-  //   ptr = items[ptr].rlink;
-  // }
   if (0 == nodes[i].top) return -1;
   return i;
 }
@@ -461,9 +457,6 @@ void DLZ::test_signature() {
     std::cout << items[i].name << " : " << items[i].sig << " " << items[i].wd << std::endl;
   }
   unsigned s = compute_signature();
-  std::cout << s << std::endl;
-  // for (unsigned i = 0; i < HASHSIZE; ++i)
-  //   std::cout << i << ": " << cache[i] << std::endl;
   std::cout << hash_lookup(s) << std::endl;
 }
 
@@ -480,7 +473,7 @@ unsigned DLZ::compute_signature() {
     offset = items[k].wd;
     while (off < offset) {
       cache[cacheptr+off] = sigacc | SIGNBIT;
-      printf("caheptr = %u, off = %d, sigacc | SIGNBIT = %llu\n", cacheptr, off, sigacc | SIGNBIT);
+      // printf("(S) cacheptr = %u, off = %d, sigacc | SIGNBIT = %llu\n", cacheptr, off, sigacc | SIGNBIT);
       ++off;
       sigacc = 0;
     }
@@ -494,7 +487,7 @@ unsigned DLZ::compute_signature() {
     offset = items[k].wd;
     while (off < offset) {
       cache[cacheptr+off] = sigacc | SIGNBIT;
-      printf("caheptr = %u, off = %d, sigacc | SIGNBIT = %llu\n", cacheptr, off, sigacc | SIGNBIT);
+      // printf("(P) cacheptr = %u, off = %d, sigacc | SIGNBIT = %llu\n", cacheptr, off, sigacc | SIGNBIT);
       off++;
       sigacc = 0;
     }
@@ -502,7 +495,7 @@ unsigned DLZ::compute_signature() {
     sigacc += 1LL << siginx[sig].shift;
   }
   cache[cacheptr+off] = sigacc;
-  printf("caheptr = %u, off = %d, sigacc = %llu\n", cacheptr, off, sigacc);
+  // printf("(#) cacheptr = %u, off = %d, sigacc = %llu\n", cacheptr, off, sigacc);
   
   return sighash;
 }
@@ -520,45 +513,42 @@ int DLZ::hash_lookup(unsigned sighash) {
     }
   }
   hash[h].sig = cacheptr + 1;
+  // printf("hash[%d].sig = %u\n", h, cacheptr+1);
   cacheptr += sigsiz;
   return 0;
 }
 
 void DLZ::search() {
   // Form a signature sigma
-  compute_signature();
-  
+  unsigned s = compute_signature();
+  int t = hash_lookup(s);
+  if (0 != t) {
+    printf("s = %u, t = %d\n", s, t);
+    return;
+  }
+
   // select item i
   const llng i = select_item();
-
-  /*
-  
+  if (-1 == i) return;
   // std::cout << "select item " << i << std::endl;
+  
 
   // collect the set of remaining options having i
   std::vector<std::vector<ullng>> O = collect_options(i);
+  
   for (auto X : O) {
-  // Only add the address of the first item in option X to R
-  R.push_back(X[0]);
+    for (auto p : X) {
+      // std::cout << "commit: " << p << ", " << nodes[p].top << std::endl;
+      commit(p, nodes[p].top);
+    }
 
-  for (auto p : X) {
-  // std::cout << "commit: " << p << ", " << nodes[p].top << std::endl;
-  commit(p, nodes[p].top);
-  }
-  // print_items();
-  // print_nodes();
-    
-  search();
+    search();
 
-  for (auto p = X.rbegin(); p != X.rend(); ++p) {
-  // std::cout << "uncommit: " << *p << ", " << nodes[*p].top << std::endl;
-  uncommit(*p, nodes[*p].top);
+    for (auto p = X.rbegin(); p != X.rend(); ++p) {
+      // std::cout << "uncommit: " << *p << ", " << nodes[*p].top << std::endl;
+      uncommit(*p, nodes[*p].top);
+    }
   }
-    
-  R.pop_back();
-  }
-
-  */
 }
 
 void DLZ::print_items() {
@@ -632,8 +622,8 @@ int main()
   
   // d.print_items();
   // d.print_nodes();
-  d.test_signature();
-  // d.search();
+  // d.test_signature();
+  d.search();
   // std::cout << d.get_num_of_solutions() << std::endl;
 
   return 0;

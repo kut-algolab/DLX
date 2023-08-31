@@ -8,9 +8,11 @@
 typedef unsigned long long ullng;
 typedef long long llng;
 
-#define signbit (1ULL << 63)
-#define HASHSIZE  20000000000
-#define CACHESIZE 20000000000
+#define SIGNBIT (1ULL << 63)
+#define LOG_HASHSIZE 30
+#define HASHSIZE  (1 << LOG_HASHSIZE)
+#define CACHESIZE (1 << LOG_HASHSIZE)
+#define HASHMASK ((1 << LOG_HASHSIZE) -1)
 
 struct inx {
   int hash;
@@ -96,6 +98,7 @@ struct DLZ {
 
   unsigned sigsiz = 0; // size of offset
   std::vector<inx> siginx;
+  unsigned cacheptr = 0;
   
   /*** member functions ***/
   void read_instance();
@@ -118,7 +121,8 @@ struct DLZ {
   std::vector<std::vector<ullng>> collect_options(const ullng);
 
   void prepare_signature();
-  ullng compute_signature();
+  unsigned compute_signature();
+  bool lookup(const unsigned);
   void test_signature();
   
   void print_items();
@@ -457,8 +461,55 @@ void DLZ::test_signature() {
   }
 }
 
-ullng DLZ::compute_signature() {
-  return 0;
+unsigned DLZ::compute_signature() {
+  ullng sigacc = 0;
+  unsigned sighash = 0;
+  int off = 1, sig, offset;
+  if (cacheptr + sigsiz >= CACHESIZE) exit(-1);
+  for (ullng k = N1+N2; k != N1+1; k = items[k].llink) {
+    //32
+    if (nodes[k].top == 0) continue;
+    sig = items[k].sig;
+    offset = items[k].wd;
+    while (off < offset) {
+      cache[cacheptr + off] = sigacc | SIGNBIT;
+      off++;
+      sigacc = 0;
+    }
+    sig += nodes[k].color;
+    sighash += siginx[sig].hash;
+    sigacc += (long long)siginx[sig].code << siginx[sig].shift;
+  }
+  for (ullng k = items[0].llink; k != 0; k = items[k].llink) {
+    // 31
+    sig = items[k].sig;
+    offset = items[k].wd;
+    while (off < offset) {
+      cache[cacheptr + off] = sigacc | SIGNBIT;
+      off++;
+      sigacc = 0;
+    }
+    sighash += siginx[sig].hash;
+    sigacc += 1LL << siginx[sig].shift;
+  }
+  cache[cacheptr + off] = sigacc;
+  
+  lookup(sighash);
+  return sighash;
+}
+
+bool DLZ::lookup(unsigned sighash) {
+  int h, hh, s, l;
+  hh = (sighash >> (LOG_HASHSIZE - 1)) | 1;
+  for (h = sighash & HASHMASK; ; h = (h + hh) & HASHMASK) {
+    s = hash[h].sig;
+    if (s != 0) break;
+    for (l = 0; ; ++l) {
+      if (cache[s+l] != cache[cacheptr+1+l]) break;
+      if ((cache[s+l] & SIGNBIT) != 0) continue;
+    }
+  }
+  return true;
 }
 
 void DLZ::search() {

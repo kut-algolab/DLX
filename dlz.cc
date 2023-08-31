@@ -122,7 +122,7 @@ struct DLZ {
 
   void prepare_signature();
   unsigned compute_signature();
-  bool lookup(const unsigned);
+  int lookup(const unsigned);
   void test_signature();
   
   void print_items();
@@ -446,6 +446,7 @@ void DLZ::prepare_signature() {
       r += t;
     }
   }
+  sigsiz = q + 1;
 }
 
 void DLZ::test_signature() {
@@ -459,6 +460,7 @@ void DLZ::test_signature() {
   for (ullng i = 0; i <= N1+N2; ++i) {
     std::cout << items[i].name << " : " << items[i].sig << " " << items[i].wd << std::endl;
   }
+  std::cout << compute_signature() << std::endl;
 }
 
 unsigned DLZ::compute_signature() {
@@ -466,13 +468,14 @@ unsigned DLZ::compute_signature() {
   unsigned sighash = 0;
   int off = 1, sig, offset;
   if (cacheptr + sigsiz >= CACHESIZE) exit(-1);
-  for (ullng k = N1+N2; k != N1+1; k = items[k].llink) {
+  // for (ullng k = N1+N2; k != N1+1; k = items[k].llink) {
+  for (ullng k = N1+N2; k > N1; --k) {
     //32
     if (nodes[k].top == 0) continue;
     sig = items[k].sig;
     offset = items[k].wd;
     while (off < offset) {
-      cache[cacheptr + off] = sigacc | SIGNBIT;
+      cache[cacheptr+off] = sigacc | SIGNBIT;
       off++;
       sigacc = 0;
     }
@@ -485,20 +488,21 @@ unsigned DLZ::compute_signature() {
     sig = items[k].sig;
     offset = items[k].wd;
     while (off < offset) {
-      cache[cacheptr + off] = sigacc | SIGNBIT;
+      cache[cacheptr+off] = sigacc | SIGNBIT;
       off++;
       sigacc = 0;
     }
     sighash += siginx[sig].hash;
     sigacc += 1LL << siginx[sig].shift;
   }
-  cache[cacheptr + off] = sigacc;
+  cache[cacheptr+off] = sigacc;
   
-  lookup(sighash);
+  // lookup(sighash);
   return sighash;
 }
 
-bool DLZ::lookup(unsigned sighash) {
+// FIXME
+int DLZ::lookup(unsigned sighash) {
   int h, hh, s, l;
   hh = (sighash >> (LOG_HASHSIZE - 1)) | 1;
   for (h = sighash & HASHMASK; ; h = (h + hh) & HASHMASK) {
@@ -509,7 +513,9 @@ bool DLZ::lookup(unsigned sighash) {
       if ((cache[s+l] & SIGNBIT) != 0) continue;
     }
   }
-  return true;
+  hash[h].sig = cacheptr + 1;
+  cacheptr += sigsiz;
+  return h+1;
 }
 
 void DLZ::search() {

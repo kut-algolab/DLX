@@ -100,6 +100,8 @@ struct DLZ {
   std::vector<inx> siginx;
   unsigned cacheptr = 0;
   int znode;
+  std::vector<std::vector<llng>> zdd;
+  ullng sols = 0;
   
   /*** member functions ***/
   void read_instance();
@@ -121,17 +123,19 @@ struct DLZ {
   llng select_item();
   std::vector<std::vector<ullng>> collect_options(const ullng);
 
+  void prepare_zdd();
   void prepare_signature();
   unsigned compute_signature();
   int hash_lookup(const unsigned);
   void test_signature();
-  
+
+  void print_ZDD();
   void print_items();
   void print_nodes();
   void print_option(ullng);
   void print_options(std::vector<ullng> &);
   void print_all_solutions();
-  // ullng get_num_of_solutions() { return sols; };
+  ullng get_num_of_solutions() { return sols; };
   
   DLZ() {
     item itm(0);
@@ -286,7 +290,7 @@ void DLZ::read_instance() {
 // if there is item i to be covered and its len is 0, then return -1
 llng DLZ::select_item() {
   ullng i = items[0].rlink;
-  if (0 == nodes[i].top) return -1;
+  if (0 >= nodes[i].top) return -1;
   return i;
 }
 
@@ -394,9 +398,16 @@ void DLZ::unpurify(const ullng p) {
   }
 }
 
+void DLZ::prepare_zdd() {
+  std::vector<llng> edge0{0, 0, 0};
+  std::vector<llng> edge1{1, 1, 1};
+  zdd.push_back(edge0);
+  zdd.push_back(edge1);
+}
+
 void DLZ::prepare_signature() {
   int q = 1, r = 0, sigptr = 0;
-  std::srand(time(NULL));
+  // std::srand(time(NULL));
   // std::vector<bool> usedcolor(colors.size(), false);
   for (ullng k = N1+N2; 0 != k; --k) {
     if (k <= N1) { // primary item
@@ -521,9 +532,10 @@ int DLZ::hash_lookup(unsigned sighash) {
 void DLZ::search() {
   // Form a signature sigma
   unsigned s = compute_signature();
+  // std::cout << "signature = " << s << std::endl;
   int t = hash_lookup(s);
   if (0 != t) {
-    printf("s = %u, t = %d\n", s, t);
+    printf("cache hit : s = %u, t = %d\n", s, t);
     return;
   }
 
@@ -535,20 +547,53 @@ void DLZ::search() {
 
   // collect the set of remaining options having i
   std::vector<std::vector<ullng>> O = collect_options(i);
-  
+
+  bool flag = false;
+  std::vector<std::vector<ullng>> x;
+  unsigned edge1;
+
   for (auto X : O) {
+    x.push_back(X);
+    edge1 = zdd.size()-1;
+    //std::cout << "select option " << std::abs(nodes[X[0]-1].top) << std::endl;
+    
     for (auto p : X) {
       // std::cout << "commit: " << p << ", " << nodes[p].top << std::endl;
       commit(p, nodes[p].top);
     }
 
     search();
+    
+    if (0 == items[0].rlink) {
+      flag = true;
+      //std::cout << "find ans" << std::endl;
+      std::vector<llng> tmp{-1, 1, std::abs(nodes[X[0]-1].top)}; // {edge0, edge1, option number}
+      zdd.push_back(tmp);
+      // printf("I(%lu) = {%lld, %lld, %lld}\n", zdd.size()-1, zdd.back()[0], zdd.back()[1], zdd.back()[2]);
+    }
+    // std::cout << "deselect option " << std::abs(nodes[X[0]-1].top) << std::endl;
 
     for (auto p = X.rbegin(); p != X.rend(); ++p) {
       // std::cout << "uncommit: " << *p << ", " << nodes[*p].top << std::endl;
       uncommit(*p, nodes[*p].top);
     }
   }
+  
+  if (!flag) {
+    std::vector<llng> tmp{-1, static_cast<long long>(zdd.size()-1), std::abs(nodes[x.back()[0]-1].top)};
+    zdd.push_back(tmp);
+    // printf("I(%lu) = {%lld, %lld, %lld}\n", zdd.size()-1, zdd.back()[0], zdd.back()[1], zdd.back()[2]);
+  }
+  // std::cout << "no remaining option we can choose (meaning option " << std::abs(nodes[x.back()[0]-1].top) << " edge0 -> 0)" << std::endl;
+  zdd.back()[0] = 0;
+  // printf("I(%lu) = {%lld, %lld, %lld}\n", zdd.size()-1, zdd.back()[0], zdd.back()[1], zdd.back()[2]);
+  if (x.size() > 1) x.pop_back();
+  if (std::abs(nodes[x.back()[0]-1].top) != zdd.back()[2]) {
+    std::vector<llng> tmp{zdd.back()[2], edge1, std::abs(nodes[x.back()[0]-1].top)};
+    zdd.push_back(tmp);
+    // printf("I(%lu) = {%lld, %lld, %lld}\n", zdd.size()-1, zdd.back()[0], zdd.back()[1], zdd.back()[2]);
+  }
+  
 }
 
 void DLZ::print_items() {
@@ -606,6 +651,14 @@ void DLZ::print_options(std::vector<ullng> &R) {
   std::cout << "}" << std::endl;
 }
 
+void DLZ::print_ZDD() {
+  std::cout << "print ZDD" << std::endl;
+  // I(i) = { option number, edge0, edge1 }
+  for (ullng i = 0; i < zdd.size(); ++i) {
+    printf("I(%llu) = {%lld, %lld, %lld}\n", i, zdd[i][2], zdd[i][0], zdd[i][1]);
+  }
+}
+
 // void DLZ::print_all_solutions() {
 // }
 
@@ -613,7 +666,10 @@ int main()
 {
   DLZ d;
   d.read_instance();
+  d.prepare_zdd();
   d.prepare_signature();
+
+  
 
   hash = (hashentry*)malloc(HASHSIZE * sizeof(hashentry));
   if (NULL == hash) exit(1);
@@ -624,7 +680,9 @@ int main()
   // d.print_nodes();
   // d.test_signature();
   d.search();
-  // std::cout << d.get_num_of_solutions() << std::endl;
+
+  // d.print_ZDD();
+  // std::cout << "sols = " << d.get_num_of_solutions() << std::endl;
 
   return 0;
 }

@@ -1,11 +1,11 @@
-dlx : dlx.cc
-	clang++ -std=c++17 -Wall -o dlx dlx.cc
+dlx : src/dlx.cc
+	clang++ -std=c++17 -Wall -o dlx src/dlx.cc
 
-dlc : dlc.cc
-	clang++ -std=c++17 -Wall -o dlc dlc.cc
+dlc : src/dlc.cc
+	clang++ -std=c++17 -Wall -o dlc src/dlc.cc
 
-dlz : dlz.cc
-	clang++ -std=c++17 -Wall -o dlz dlz.cc
+dlz : src/dlz.cc
+	clang++ -std=c++17 -Wall -o dlz src/dlz.cc
 
 clean :
 	rm -rf dlx dlc dlz

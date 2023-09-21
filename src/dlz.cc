@@ -2,6 +2,7 @@
 #include <sstream>
 #include <vector>
 #include <cstdlib>
+#include <stack>
 #include <unordered_set>
 #include <unordered_map>
 
@@ -85,6 +86,12 @@ struct item {
   };
 };
 
+struct zddentry {
+  ullng zero_edge;
+  ullng one_edge;
+  ullng opt_number;
+};
+
 struct DLZ {
   /*** data members ***/
   ullng N1 = 0; // # of primary items
@@ -100,9 +107,10 @@ struct DLZ {
   std::vector<inx> siginx;
   unsigned cacheptr = 0;
   int znode;
-  std::vector<std::vector<llng>> zdd;
-  std::vector<llng> zdd_edge;
-  std::vector<llng> opt_number;
+  // std::vector<std::vector<ullng>> zdd;
+  std::vector<zddentry> zdd;
+  std::vector<ullng> opt_number;
+  std::stack<unsigned> zdd_edge;
   ullng sols = 0;
   
   /*** member functions ***/
@@ -401,8 +409,15 @@ void DLZ::unpurify(const ullng p) {
 }
 
 void DLZ::prepare_zdd() {
-  std::vector<llng> edge0{0, 0, 0};
-  std::vector<llng> edge1{1, 1, 1};
+  zddentry edge0;
+  edge0.zero_edge = 0;
+  edge0.one_edge = 0;
+  edge0.opt_number = 0;
+  zddentry edge1;
+  edge1.zero_edge = 1;
+  edge1.one_edge = 1;
+  edge1.opt_number = 1;
+  
   zdd.push_back(edge0);
   zdd.push_back(edge1);
 }
@@ -543,14 +558,14 @@ void DLZ::search() {
 
   if (0 == items[0].rlink) {
     // std::cout << "find ans" << std::endl;
-    zdd_edge.push_back(1);
+    zdd_edge.push(1);
     return;
   }
   
   // select item i
   const llng i = select_item();
   if (-1 == i) {
-    zdd_edge.push_back(0);
+    zdd_edge.push(0);
     return;
   }
   // std::cout << "select item " << i << std::endl;
@@ -575,16 +590,21 @@ void DLZ::search() {
       uncommit(*p, nodes[*p].top);
     }
     if (X == O.back()) {
-      zdd_edge.push_back(0);
+      zdd_edge.push(0);
       for (auto t : O) {
-	llng edge0 = zdd_edge.back();
-	zdd_edge.pop_back();
-	std::vector<llng>tmp{edge0, zdd_edge.back(), opt_number.back()};
+	unsigned edge0 = zdd_edge.top();
+	zdd_edge.pop();
+	// std::vector<ullng>tmp{edge0, zdd_edge.top(), opt_number.back()};
+	zddentry tmp;
+	tmp.zero_edge = edge0;
+	tmp.one_edge = zdd_edge.top();
+	tmp.opt_number = opt_number.back();
+	
 	zdd.push_back(tmp);
-	zdd_edge.pop_back();
+	zdd_edge.pop();
 	opt_number.pop_back();
-	zdd_edge.push_back(zdd.size()-1);
-	// printf("I(%lu) = {%lld, I(%lld), I(%lld)}\n", zdd.size()-1, zdd.back()[2], zdd.back()[0], zdd.back()[1]);
+	zdd_edge.push(zdd.size()-1);
+	// printf("I(%lu) = {%lld, I(%lld), I(%lld)}\n", zdd.size()-1, zdd.back().opt_number, zdd.back().zero_edge, zdd.back().one_edge);
       }
     }
   }
@@ -649,7 +669,7 @@ void DLZ::print_ZDD() {
   std::cout << "print ZDD" << std::endl;
   std::cout << "I(i) = { option number, 0-edge, 1-edge }" << std::endl;
   for (ullng i = 0; i < zdd.size(); ++i) {
-    printf("I(%llu) = {%lld, I(%lld), I(%lld)}\n", i, zdd[i][2], zdd[i][0], zdd[i][1]);
+    printf("I(%llu) = {%lld, I(%lld), I(%lld)}\n", i, zdd[i].opt_number, zdd[i].zero_edge, zdd[i].one_edge);
   }
 }
 

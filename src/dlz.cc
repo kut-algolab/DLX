@@ -5,6 +5,7 @@
 #include <stack>
 #include <unordered_set>
 #include <unordered_map>
+#include <gmp.h>
 
 typedef unsigned long long ullng;
 typedef long long llng;
@@ -31,7 +32,7 @@ struct inx {
 
 struct hashentry {
   int sig;
-  int zddref;
+  ullng zddref;
 };
 
 hashentry *hash;
@@ -90,6 +91,12 @@ struct zddentry {
   ullng zero_edge;
   ullng one_edge;
   ullng opt_number;
+  mpz_t solutions;
+  zddentry() {
+    // init value = -1
+    mpz_init(solutions);
+    mpz_sub_ui(solutions, solutions, 1);
+  }
 };
 
 struct DLZ {
@@ -107,9 +114,8 @@ struct DLZ {
   std::vector<inx> siginx;
   unsigned cacheptr = 0;
   int znode;
-  // std::vector<std::vector<ullng>> zdd;
   std::vector<zddentry> zdd;
-  std::vector<ullng> opt_number;
+  std::stack<ullng> opt_number;
   std::stack<unsigned> zdd_edge;
   ullng sols = 0;
   
@@ -132,12 +138,13 @@ struct DLZ {
   void search();
   llng select_item();
   std::vector<std::vector<ullng>> collect_options(const ullng);
-
   void prepare_zdd();
   void prepare_signature();
   unsigned compute_signature();
   int hash_lookup(const unsigned);
   void test_signature();
+  void search_solutions(const ullng);
+  std::string get_num_of_solutions();
 
   void print_ZDD();
   void print_items();
@@ -145,7 +152,6 @@ struct DLZ {
   void print_option(ullng);
   void print_options(std::vector<ullng> &);
   void print_all_solutions();
-  ullng get_num_of_solutions() { return sols; };
   
   DLZ() {
     item itm(0);
@@ -413,11 +419,12 @@ void DLZ::prepare_zdd() {
   edge0.zero_edge = 0;
   edge0.one_edge = 0;
   edge0.opt_number = 0;
+  mpz_set_ui(edge0.solutions, 0);
   zddentry edge1;
   edge1.zero_edge = 1;
   edge1.one_edge = 1;
   edge1.opt_number = 1;
-  
+  mpz_set_ui(edge1.solutions, 1);
   zdd.push_back(edge0);
   zdd.push_back(edge1);
 }
@@ -552,8 +559,8 @@ void DLZ::search() {
   // std::cout << "signature = " << s << std::endl;
   int t = hash_lookup(s);
   if (0 != t) {
-    printf("cache hit : s = %u, t = %d\n", s, t);
-    return;
+    // printf("cache hit : s = %u, t = %d\n", s, t);
+    // return;
   }
 
   if (0 == items[0].rlink) {
@@ -575,7 +582,7 @@ void DLZ::search() {
   std::vector<std::vector<ullng>> O = collect_options(i);
   
   for (auto X : O) {
-    opt_number.push_back(std::abs(nodes[X[0]-1].top));
+    opt_number.push(std::abs(nodes[X[0]-1].top));
     // std::cout << "select option " << opt_number.back() << std::endl;
     for (auto p : X) {
       // std::cout << "commit: " << p << ", " << nodes[p].top << std::endl;
@@ -591,24 +598,43 @@ void DLZ::search() {
     }
     if (X == O.back()) {
       zdd_edge.push(0);
-      for (auto t : O) {
+      for (auto _ : O) {
 	unsigned edge0 = zdd_edge.top();
 	zdd_edge.pop();
-	// std::vector<ullng>tmp{edge0, zdd_edge.top(), opt_number.back()};
 	zddentry tmp;
 	tmp.zero_edge = edge0;
 	tmp.one_edge = zdd_edge.top();
-	tmp.opt_number = opt_number.back();
-	
+	tmp.opt_number = opt_number.top();
+
 	zdd.push_back(tmp);
 	zdd_edge.pop();
-	opt_number.pop_back();
+	opt_number.pop();
 	zdd_edge.push(zdd.size()-1);
 	// printf("I(%lu) = {%lld, I(%lld), I(%lld)}\n", zdd.size()-1, zdd.back().opt_number, zdd.back().zero_edge, zdd.back().one_edge);
       }
     }
   }
+  // std::cout << "sig = " << s << ", zddref = " << zdd.size()-1 << std::endl;
 }
+
+std::string DLZ::get_num_of_solutions() {
+  search_solutions(zdd.size()-1);
+  char* tmp = mpz_get_str(NULL, 10, zdd.back().solutions);
+  return tmp;
+}
+
+void DLZ::search_solutions(ullng n) {
+  // if top or bottom
+  if (0 == n || 1 == n) return;
+  // if already calculated
+  if (0 != (mpz_cmp_si(zdd[n].solutions, -1))) return;
+  
+  search_solutions(zdd[n].zero_edge);
+  search_solutions(zdd[n].one_edge);
+  
+  mpz_add(zdd[n].solutions, zdd[zdd[n].zero_edge].solutions, zdd[zdd[n].one_edge].solutions);
+}
+
 
 void DLZ::print_items() {
   printf("###### Print header #####\n\"(i) name llink rlink\"\n");
@@ -673,8 +699,6 @@ void DLZ::print_ZDD() {
   }
 }
 
-// void DLZ::print_all_solutions() {
-// }
 
 int main()
 {
@@ -682,8 +706,6 @@ int main()
   d.read_instance();
   d.prepare_zdd();
   d.prepare_signature();
-
-  
 
   hash = (hashentry*)malloc(HASHSIZE * sizeof(hashentry));
   if (NULL == hash) exit(1);
@@ -695,8 +717,7 @@ int main()
   // d.test_signature();
   d.search();
 
-  d.print_ZDD();
-  // std::cout << "sols = " << d.get_num_of_solutions() << std::endl;
-
+  // d.print_ZDD();
+  std::cout << "sols = " << d.get_num_of_solutions() << std::endl;
   return 0;
 }

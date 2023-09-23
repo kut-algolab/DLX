@@ -1,7 +1,6 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <cstdlib>
 #include <stack>
 #include <unordered_set>
 #include <unordered_map>
@@ -117,7 +116,6 @@ struct DLZ {
   std::vector<zddentry> zdd;
   std::stack<ullng> opt_number;
   std::stack<unsigned> zdd_edge;
-  ullng sols = 0;
   
   /*** member functions ***/
   void read_instance();
@@ -583,7 +581,7 @@ void DLZ::search() {
   
   for (auto X : O) {
     opt_number.push(std::abs(nodes[X[0]-1].top));
-    // std::cout << "select option " << opt_number.back() << std::endl;
+    std::cout << "select option " << opt_number.top() << std::endl;
     for (auto p : X) {
       // std::cout << "commit: " << p << ", " << nodes[p].top << std::endl;
       commit(p, nodes[p].top);
@@ -591,7 +589,7 @@ void DLZ::search() {
 
     search();
 
-    // std::cout << "deselect option " << opt_number.back() << std::endl;
+    std::cout << "deselect option " << opt_number.top() << std::endl;
     for (auto p = X.rbegin(); p != X.rend(); ++p) {
       // std::cout << "uncommit: " << *p << ", " << nodes[*p].top << std::endl;
       uncommit(*p, nodes[*p].top);
@@ -619,8 +617,8 @@ void DLZ::search() {
 
 std::string DLZ::get_num_of_solutions() {
   search_solutions(zdd.size()-1);
-  char* tmp = mpz_get_str(NULL, 10, zdd.back().solutions);
-  return tmp;
+  char* sols = mpz_get_str(NULL, 10, zdd.back().solutions);
+  return sols;
 }
 
 void DLZ::search_solutions(ullng n) {

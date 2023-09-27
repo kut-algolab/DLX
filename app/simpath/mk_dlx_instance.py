@@ -28,17 +28,28 @@ for u, v in E:
     G[v].append(u)
 
 INF = 1 << 60
-dist = [INF for i in range(n+1)]
+from_s = [INF for i in range(n+1)]
 que = []
 
-dist[s] = 0
+from_s[s] = 0
 que.append(s)
 
 while que:
     v = que.pop(0)
     for u in G[v]:
-        if INF == dist[u]:
-            dist[u] = dist[v] + 1
+        if INF == from_s[u]:
+            from_s[u] = from_s[v] + 1
+            que.append(u)
+
+from_t = [INF for i in range(n+1)]
+from_t[t] = 0
+que.append(t)
+
+while que:
+    v = que.pop(0)
+    for u in G[v]:
+        if INF == from_t[u]:
+            from_t[u] = from_t[v] + 1
             que.append(u)
 
 # Print the primary items
@@ -68,7 +79,7 @@ for (u, v) in E:
         print("#" + str(l) + " #v" + str(t) + " v" + str(u) + ":" + str(l-1) + " v" + str(v) + ":" + str(l) + " p" + str(l-1) + ":" + str(u) + " p" + str(l) + ":" + str(v))
         continue
     else:        
-        for i in range(dist[u]+1, l):
+        for i in range(from_s[u]+1, l-from_t[v]+2):
             print("#" + str(i) + " v" + str(u) + ":" + str(i-1) + " v" + str(v) + ":" + str(i) + " p" + str(i-1) + ":" + str(u) + " p" + str(i) + ":" + str(v))
-# print(dist)
+# print(from_s[t])
 # print(s, t)

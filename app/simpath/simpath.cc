@@ -116,6 +116,7 @@ struct DLZ {
   std::vector<zddentry> zdd;
   std::stack<ullng> opt_number;
   std::stack<unsigned> zdd_edge;
+  std::stack<int> zdd_sig;
   ullng hit_count = 0;
   
   /*** member functions ***/
@@ -546,6 +547,7 @@ void DLZ::search() {
   if (t.first) {
     ++hit_count;
     // printf("cache hit : s = %u, t = %d, hash[%d-1].sig = %u\n", s, t.second, t.second, hash[t.second-1].sig);
+    zdd_sig.push(hash[t.second-1].sig-1);
     zdd_edge.push(hash[t.second-1].zddref);
     return;
   }
@@ -553,6 +555,8 @@ void DLZ::search() {
   if (0 == items[0].rlink) {
     // std::cout << "find ans" << std::endl;
     hash[t.second].zddref = 1;
+    cache[hash[t.second].sig-1] = 1;
+    zdd_sig.push(hash[t.second].sig-1);
     zdd_edge.push(1);
     return;
   }
@@ -560,6 +564,8 @@ void DLZ::search() {
   // select item i
   const llng i = select_item();
   if (-1 == i) {
+    cache[hash[t.second].sig-1] = 0;
+    zdd_sig.push(hash[t.second].sig-1);
     zdd_edge.push(0);
     return;
   }
@@ -587,6 +593,7 @@ void DLZ::search() {
       uncommit(*p, nodes[*p].top);
     }
     if (X == O.back()) {
+      zdd_sig.push(-1);
       zdd_edge.push(0);
       for (auto _ : O) {
 	unsigned edge0 = zdd_edge.top();
@@ -601,7 +608,18 @@ void DLZ::search() {
 	opt_number.pop();
 	zdd_edge.push(zdd.size()-1);
 	// printf("I(%lu) = {%lld, I(%lld), I(%lld)}\n", zdd.size()-1, zdd.back().opt_number, zdd.back().zero_edge, zdd.back().one_edge);
+	
 	hash[t.second].zddref = zdd_edge.top();
+	ullng count = 0;
+	if (-1 != zdd_sig.top()) count = cache[zdd_sig.top()];
+	// std::cout << "0-edge -> " << zdd_sig.top() << std::endl;
+	zdd_sig.pop();
+	// std::cout << "1-edge -> " << zdd_sig.top() << std::endl;
+	count += cache[zdd_sig.top()];
+	// std::cout << "count -> " << count << std::endl;
+	zdd_sig.pop();
+	cache[hash[t.second].sig-1] = count;
+	zdd_sig.push(hash[t.second].sig-1);
       }
     }
   }
@@ -707,6 +725,7 @@ int main()
 
   d.search();
 
+  std::cout << "cache[0] = " << cache[0] << std::endl;
   // d.print_ZDD();
   std::cout << "# of hit = " << d.hit_count << std::endl;;
   std::cout << "# of sols = " << d.get_num_of_solutions() << std::endl;

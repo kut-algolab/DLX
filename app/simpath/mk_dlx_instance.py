@@ -25,7 +25,6 @@ t = int(ts[2])
 G = [[] for i in range(n+1)]
 for u, v in E:
     G[u].append(v)
-    G[v].append(u)
 
 INF = 1 << 60
 from_s = [INF for i in range(n+1)]
@@ -79,7 +78,7 @@ for (u, v) in E:
         print("#" + str(l) + " #v" + str(t) + " v" + str(u) + ":" + str(l-1) + " v" + str(v) + ":" + str(l) + " p" + str(l-1) + ":" + str(u) + " p" + str(l) + ":" + str(v))
         continue
     else:        
-        for i in range(from_s[u]+1, l-from_t[v]+2):
+        for i in range(from_s[u]+1, l-from_t[v]+1):
             print("#" + str(i) + " v" + str(u) + ":" + str(i-1) + " v" + str(v) + ":" + str(i) + " p" + str(i-1) + ":" + str(u) + " p" + str(i) + ":" + str(v))
-# print(from_s[t])
+# print(from_s)
 # print(s, t)

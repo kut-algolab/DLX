@@ -432,9 +432,6 @@ void DLZ::prepare_signature() {
     }
   }
   sigsiz = q + 1;
-
-  ZDD.push_back(ZBDD(0));
-  ZDD.push_back(ZBDD(1));
 }
 
 unsigned DLZ::compute_signature() {
@@ -442,8 +439,6 @@ unsigned DLZ::compute_signature() {
   unsigned sighash = 0;
   int off = 1, sig, offset;
 
-  if (0 == items[0].rlink) return sighash;
-  
   if (cacheptr + sigsiz >= CACHESIZE) exit(-1);
   for (ullng k = N1+N2; k > N1; --k) {
     if (nodes[k].top == 0) continue;
@@ -456,7 +451,8 @@ unsigned DLZ::compute_signature() {
       ++off;
       sigacc = 0;
     }
-    sig += nodes[k].color;
+    if (secondary_count[k-N1-1] != 0 && nodes[k].color != -100)
+       sig += nodes[k].color;
     sighash += siginx[sig].hash;
     sigacc += (long long)siginx[sig].code << siginx[sig].shift;
   }
@@ -497,26 +493,25 @@ std::pair<bool, int> DLZ::hash_lookup(unsigned sighash) {
 }
 
 ZBDD DLZ::search() {
+  if (0 == items[0].rlink) {
+    // std::cout << "find answer" << std::endl;
+    return ZBDD(1).Change(opt_number.back());
+  }
+
+  // select item i
+  const llng i = select_item();
+  if (-1 == i) {
+    return ZBDD(0);
+  }
+
   unsigned s = compute_signature();
   std::pair<bool, int> t = hash_lookup(s);
   if (t.first) {
     // std::cout << "cache hit!" << std::endl;
+    // std::cout << sbddh::ZStr(ZDD[cache[hash[t.second]-1]]*ZBDD(1).Change(opt_number.back())) << std::endl;
     return ZDD[cache[hash[t.second]-1]]*ZBDD(1).Change(opt_number.back());
   }
   
-  if (0 == items[0].rlink) {
-    // std::cout << "find answer" << std::endl;
-    cache[hash[t.second]-1] = 1;
-    return ZBDD(1).Change(opt_number.back());
-  }
-  
-  // select item i
-  const llng i = select_item();
-  if (-1 == i) {
-    cache[hash[t.second]-1] = 0;
-    return ZBDD(0);
-  }
-
   ZBDD z = ZBDD(0);
   // collect the set of remaining options having i
   std::vector<std::vector<ullng>> O = collect_options(i);
@@ -538,6 +533,7 @@ ZBDD DLZ::search() {
   }
   cache[hash[t.second]-1] = ZDD.size();
   ZDD.push_back(z);
+  
   return z * ZBDD(1).Change(opt_number.back());
 }
 

@@ -13,6 +13,15 @@
 typedef unsigned long long ullng;
 typedef long long llng;
 
+#define SIGNBIT   (1ULL << 63)
+#define LOG_HASHSIZE 30
+#define HASHSIZE  (1 << LOG_HASHSIZE)
+#define CACHESIZE (1 << LOG_HASHSIZE)
+#define HASHMASK ((1 << LOG_HASHSIZE) -1)
+
+ullng *cache;
+ullng *hash;
+
 struct inx {
   int hash;
   short code;
@@ -85,11 +94,11 @@ struct DLZ {
   std::vector<std::string> colors;
   std::vector<int> opt_number = {1};
 
-  unsigned sigsiz = 0; // size of offset
+  ullng cacheptr = 0;
+  unsigned sigsiz = 0; // size of offset (subproblem signature <- 64bit * sigsiz)
   std::vector<inx> siginx;
   std::vector<unsigned> secondary_count;
-  std::unordered_map<unsigned, ullng> hash;
-  std::vector<ZBDD> cache;
+  std::vector<ZBDD> ZDD;
     
   /*** member functions ***/
   void read_instance();
@@ -423,37 +432,68 @@ void DLZ::prepare_signature() {
     }
   }
   sigsiz = q + 1;
+
+  ZDD.push_back(ZBDD(0));
+  ZDD.push_back(ZBDD(1));
 }
 
 unsigned DLZ::compute_signature() {
+  ullng sigacc = 0;
   unsigned sighash = 0;
   int off = 1, sig, offset;
+
+  if (0 == items[0].rlink) return sighash;
+  
+  if (cacheptr + sigsiz >= CACHESIZE) exit(-1);
   for (ullng k = N1+N2; k > N1; --k) {
-    if (0 == nodes[k].top) continue;
-    /**********************/
-    if (2 == secondary_count[k-N1-1]) continue; // FIXME
-    /**********************/
+    if (nodes[k].top == 0) continue;
+    if (secondary_count[k-N1-1] == 2) continue;
     sig = items[k].sig;
     offset = items[k].wd;
-    while (off < offset) ++off;
+    while (off < offset) {
+      cache[cacheptr+off] = sigacc | SIGNBIT;
+      // printf("(S) cacheptr = %u, off = %d, sigacc | SIGNBIT = %llu\n", cacheptr, off, sigacc | SIGNBIT);
+      ++off;
+      sigacc = 0;
+    }
     sig += nodes[k].color;
     sighash += siginx[sig].hash;
+    sigacc += (long long)siginx[sig].code << siginx[sig].shift;
   }
   for (ullng k = items[0].llink; k != 0; k = items[k].llink) {
     sig = items[k].sig;
     offset = items[k].wd;
-    while (off < offset) ++off;
+    while (off < offset) {
+      cache[cacheptr+off] = sigacc | SIGNBIT;
+      // printf("(P) cacheptr = %u, off = %d, sigacc | SIGNBIT = %llu\n", cacheptr, off, sigacc | SIGNBIT);
+      off++;
+      sigacc = 0;
+    }
     sighash += siginx[sig].hash;
+    sigacc += 1LL << siginx[sig].shift;
   }
+  cache[cacheptr+off] = sigacc;
+  // printf("(#) cacheptr = %u, off = %d, sigacc = %llu\n", cacheptr, off, sigacc);
+  
   return sighash;
 }
 
 std::pair<bool, int> DLZ::hash_lookup(unsigned sighash) {
-  auto itr = hash.find(sighash);
-  if (itr != hash.end()) {
-    return {true, itr->second};
+  // double hash <h, hh>
+  int h = sighash & HASHMASK;
+  int hh = (sighash >> (LOG_HASHSIZE - 1)) | 1;
+  while (0 != hash[h]) {
+    int s = hash[h];
+    for (int l = 0; l < sigsiz-1; ++l) {
+      if (cache[s+l] != cache[cacheptr+l+1]) break;
+      if (0 != (cache[s+l] & SIGNBIT)) continue;
+      return {true, h};
+    }
+    h = (h + hh) & HASHMASK;
   }
-  return {false, 0};
+  hash[h] = cacheptr + 1;
+  cacheptr += sigsiz;
+  return {false, h};
 }
 
 ZBDD DLZ::search() {
@@ -461,17 +501,19 @@ ZBDD DLZ::search() {
   std::pair<bool, int> t = hash_lookup(s);
   if (t.first) {
     // std::cout << "cache hit!" << std::endl;
-    return cache[t.second]*ZBDD(1).Change(opt_number.back());
+    return ZDD[cache[hash[t.second]-1]]*ZBDD(1).Change(opt_number.back());
   }
   
   if (0 == items[0].rlink) {
     // std::cout << "find answer" << std::endl;
+    cache[hash[t.second]-1] = 1;
     return ZBDD(1).Change(opt_number.back());
   }
-
+  
   // select item i
   const llng i = select_item();
   if (-1 == i) {
+    cache[hash[t.second]-1] = 0;
     return ZBDD(0);
   }
 
@@ -494,9 +536,8 @@ ZBDD DLZ::search() {
       uncommit(*p, nodes[*p].top);
     }
   }
-  hash.insert({s, cache.size()}); // key:signature, value:index
-  cache.push_back(z);
-  // std::cout <<  "signature = " << s << " : cache[" << cache.size()-1 << "] = " << sbddh::ZStr(cache.back()) << std::endl;
+  cache[hash[t.second]-1] = ZDD.size();
+  ZDD.push_back(z);
   return z * ZBDD(1).Change(opt_number.back());
 }
 
@@ -505,10 +546,16 @@ int main() {
   DLZ d;
   d.read_instance();
   for (int i = 0; i < d.opt_number.back(); ++i) BDD_NewVar();
-
   d.prepare_signature();
+  
+  cache = (ullng*)malloc(CACHESIZE * sizeof(ullng));
+  if (NULL == cache) exit(1);
+  hash = (ullng*)malloc(HASHSIZE * sizeof(ullng));
+  if (NULL == cache) exit(1);
+  
   ZBDD z = d.search();
   std::cout << z.Card() << std::endl;
+  
   // std::cout << sbddh::ZStr(z.OnSet0(z.Top())) << std::endl;
   
   return 0;

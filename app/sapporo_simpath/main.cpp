@@ -51,16 +51,6 @@ struct node {
     }
   }
   node(llng t, llng up, llng down, llng color) : top(t), ulink(up), dlink(down), color(color) {}
-
-  friend std::ostream& operator<<(std::ostream& ss, const node& node) {
-    if (-100 == node.top) ss << "-";
-    else ss << node.top;
-    if (-100 == node.ulink) ss << " -";
-    else ss << " " << node.ulink;
-    if (-100 == node.dlink) ss << " -";
-    else ss << " " << node.dlink;
-    return ss;
-  };
 };
 
 struct item {
@@ -75,11 +65,6 @@ struct item {
   item(std::string n, ullng prev, ullng next) : name(n), llink(prev), rlink(next) {}
   void set_llink(ullng prev) { llink = prev; }
   void set_rlink(ullng next) { rlink = next; }
-
-  friend std::ostream& operator<<(std::ostream& ss, const item& itm) {
-    ss << itm.name << " " << itm.llink << " " << itm.rlink;
-    return ss;
-  };
 };
 
 struct DLZ {
@@ -124,6 +109,8 @@ struct DLZ {
   unsigned compute_signature();
   std::pair<bool, int> hash_lookup(const unsigned);
 
+  void print_table();
+  
   DLZ() {
     item itm(0);
     items.push_back(itm);
@@ -134,6 +121,7 @@ struct DLZ {
     colors.push_back("-");
   }
 };
+
 
 // Primary items are must inserted before secondary items.
 void DLZ::add_primary_to_header(std::string name) {
@@ -165,8 +153,19 @@ void DLZ::add_secondary_to_header(std::string name) {
 }
 
 void DLZ::set_header_items() {
-  for (ullng i = 1; i <= N1 + N2; ++i) {
+  if (N2 > 0) {
+    item itm("-", N1+N2, N1+1);
+    items.push_back(itm);
+    items[N1+1].llink = N1+N2+1;
+    items[N1+N2].rlink = N1+N2+1;
+  }
+  for (ullng i = 1; i <= N1; ++i) {
     node x(0, i, i, -100);
+    nodes.push_back(x);
+    ++Z;
+  }
+  for (ullng i = N1+1; i <= N1+N2; ++i) {
+    node x(0, i, i , 0);
     nodes.push_back(x);
     ++Z;
   }
@@ -442,7 +441,6 @@ unsigned DLZ::compute_signature() {
   if (cacheptr + sigsiz >= CACHESIZE) exit(-1);
   for (ullng k = N1+N2; k > N1; --k) {
     if (nodes[k].top == 0) continue;
-    if (secondary_count[k-N1-1] == 2) continue;
     sig = items[k].sig;
     offset = items[k].wd;
     while (off < offset) {
@@ -451,8 +449,8 @@ unsigned DLZ::compute_signature() {
       ++off;
       sigacc = 0;
     }
-    if (secondary_count[k-N1-1] != 0 && nodes[k].color != -100)
-       sig += nodes[k].color;
+
+    sig += nodes[k].color;
     sighash += siginx[sig].hash;
     sigacc += (long long)siginx[sig].code << siginx[sig].shift;
   }
@@ -533,9 +531,91 @@ ZBDD DLZ::search() {
   }
   cache[hash[t.second]-1] = ZDD.size();
   ZDD.push_back(z);
-  
+  // std::cout << opt_number.back() << std::endl;;
   return z * ZBDD(1).Change(opt_number.back());
 }
+
+void DLZ::print_table() {
+  std::cout << "print table" << std::endl;
+
+  // print items
+  std::string number, name, ll, rl;
+  number += "i:\t\t0\t";
+  name += "NAME(i):\t-\t";
+  ll += "LLINK(i):\t" + std::to_string(items[0].llink) + "\t";
+  rl += "RLINK(i):\t" + std::to_string(items[0].rlink) + "\t";
+  for (int i = items[0].rlink; i != 0; i = items[i].rlink) {
+    number += std::to_string(i) + "\t";
+    name += items[i].name + "\t";
+    ll += std::to_string(items[i].llink) + "\t";
+    rl += std::to_string(items[i].rlink) + "\t";
+  }
+  for (int i = items[N1+N2+1].rlink; i != N1+N2+1; i = items[i].rlink) {
+    number += std::to_string(i) + "\t";
+    name += items[i].name + "\t";
+    ll += std::to_string(items[i].llink) + "\t";
+    rl += std::to_string(items[i].rlink) + "\t";
+  }
+  number += std::to_string(N1+N2+1);
+  name += items[N1+N2+1].name;
+  ll += std::to_string(items[N1+N2+1].llink);
+  rl += std::to_string(items[N1+N2+1].rlink);
+  
+  std::cout << number << std::endl << name << std::endl << ll << std::endl << rl << std::endl << std::endl;;
+
+  // print options
+  number.clear();
+  std::string top, ul, dl, co;
+  number += "i:\t\t";
+  top += "LEN(i):\t\t";
+  ul += "ULINK(i):\t";
+  dl += "DLINK(i):\t";
+  co += "COLOR(i):\t";
+  for (int i = 0; i <= N1+N2+1; ++i) {
+    number += std::to_string(i) + "\t";
+    top += std::to_string(nodes[i].top) + "\t";
+    ul += std::to_string(nodes[i].ulink) + "\t";
+    dl += std::to_string(nodes[i].dlink) + "\t";
+    co += std::to_string(nodes[i].color) + "\t";
+  }
+  std::cout << number << std::endl << top << std::endl << ul << std::endl << dl << std::endl << co << std::endl << std::endl;
+  
+  number.clear();
+  top.clear();
+  ul.clear();
+  dl.clear();
+  co.clear();
+  number += "i:\t\t";
+  top += "TOP(i):\t\t";
+  ul += "ULINK(i):\t";
+  dl += "DLINK(i):\t";
+  co += "COLOR(i):\t";
+  for (int i = N1+N2+2, col = 0; i <= Z; ++i, ++col) {
+    number += std::to_string(i) + "\t";
+    top += std::to_string(nodes[i].top) + "\t";
+    ul += std::to_string(nodes[i].ulink) + "\t";
+    dl += std::to_string(nodes[i].dlink) + "\t";
+    co += std::to_string(nodes[i].color) + "\t";
+    if (col == 15) {
+      std::cout << number << std::endl << top << std::endl << ul << std::endl << dl << std::endl << co << std::endl << std::endl;
+      number.clear();
+      top.clear();
+      ul.clear();
+      dl.clear();
+      co.clear();
+      number += "i:\t\t";
+      top += "TOP(i):\t\t";
+      ul += "ULINK(i):\t";
+      dl += "DLINK(i):\t";
+      co += "COLOR(i):\t";
+      col = -1;
+    }
+  }
+  if (number != "i:\t\t") {
+    std::cout << number << std::endl << top << std::endl << ul << std::endl << dl << std::endl << co << std::endl << std::endl;
+  }
+}
+
 
 int main() {
   BDD_Init(1024, 1024 * 1024 * 1024);
@@ -548,11 +628,7 @@ int main() {
   if (NULL == cache) exit(1);
   hash = (ullng*)malloc(HASHSIZE * sizeof(ullng));
   if (NULL == cache) exit(1);
-  
+
   ZBDD z = d.search();
   std::cout << z.Card() << std::endl;
-  
-  // std::cout << sbddh::ZStr(z.OnSet0(z.Top())) << std::endl;
-  
-  return 0;
 }

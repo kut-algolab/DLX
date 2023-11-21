@@ -1,6 +1,6 @@
 #include "SAPPOROBDD/include/ZBDD.h"
-#include "SAPPOROBDD/include/BDDCT.h"
-#include "sbdd_helper/SBDD_helper.h"
+// #include "SAPPOROBDD/include/BDDCT.h"
+// #include "sbdd_helper/SBDD_helper.h"
 
 #include <iostream>
 #include <sstream>
@@ -37,10 +37,10 @@ struct inx {
 };
 
 struct node {
-  llng top;
-  llng ulink;
-  llng dlink;
-  llng color;
+  int top;
+  int ulink;
+  int dlink;
+  int color;
 
   node(int i) : ulink(-100), dlink(-100), color(-100) {
     if (-1 == i) { // spacer node
@@ -50,36 +50,51 @@ struct node {
       top = -100; // header node
     }
   }
-  node(llng t, llng up, llng down, llng color) : top(t), ulink(up), dlink(down), color(color) {}
+  node(int t, int up, int down, int color) : top(t), ulink(up), dlink(down), color(color) {}
+
+  friend std::ostream& operator<<(std::ostream& ss, const node& node) {
+    if (-100 == node.top) ss << "-";
+    else ss << node.top;
+    if (-100 == node.ulink) ss << " -";
+    else ss << " " << node.ulink;
+    if (-100 == node.dlink) ss << " -";
+    else ss << " " << node.dlink;
+    return ss;
+  };
 };
 
 struct item {
   std::string name;
-  ullng llink;
-  ullng rlink;
+  int llink;
+  int rlink;
   unsigned sig;
   unsigned wd;
 
   item(unsigned u = 0) : name("-"), llink(0), rlink(0) {} // header of items
   item(std::string n) : name(n) {}
-  item(std::string n, ullng prev, ullng next) : name(n), llink(prev), rlink(next) {}
-  void set_llink(ullng prev) { llink = prev; }
-  void set_rlink(ullng next) { rlink = next; }
+  item(std::string n, int prev, int next) : name(n), llink(prev), rlink(next) {}
+  void set_llink(int prev) { llink = prev; }
+  void set_rlink(int next) { rlink = next; }
+
+  friend std::ostream& operator<<(std::ostream& ss, const item& itm) {
+    ss << itm.name << " " << itm.llink << " " << itm.rlink;
+    return ss;
+  };
 };
 
 struct DLZ {
   /*** data members ***/
-  ullng N1 = 0; // # of primary items
-  ullng N2 = 0; // # of secondary items
-  ullng Z = 0;  // last spacer address
+  int N1 = 0; // # of primary items
+  int N2 = 0; // # of secondary items
+  int Z = 0;  // last spacer address
 
   std::vector<item> items;
   std::vector<node> nodes;
-  std::unordered_map<std::string, ullng> names;
+  std::unordered_map<std::string, int> names;
   std::vector<std::string> colors;
   std::vector<int> opt_number = {1};
 
-  ullng cacheptr = 0;
+  int cacheptr = 0;
   unsigned sigsiz = 0; // size of offset (subproblem signature <- 64bit * sigsiz)
   std::vector<inx> siginx;
   std::vector<unsigned> secondary_count;
@@ -91,26 +106,26 @@ struct DLZ {
   void add_secondary_to_header(std::string);
   void set_header_items();
   
-  void cover(const ullng);
-  void hide(const ullng);
-  void commit(const ullng, const ullng);
-  void purify(const ullng);
+  void cover(const int);
+  void hide(const int);
+  void commit(const int, const int);
+  void purify(const int);
   
-  void uncover(const ullng);
-  void unhide(const ullng);
-  void uncommit(const ullng, const ullng);
-  void unpurify(const ullng);
+  void uncover(const int);
+  void unhide(const int);
+  void uncommit(const int, const int);
+  void unpurify(const int);
 
   ZBDD search();
-  llng select_item();
-  std::vector<std::vector<ullng>> collect_options(const ullng);
+  int select_item();
+  std::vector<std::vector<int>> collect_options(const int);
   
   void prepare_signature();
   unsigned compute_signature();
   std::pair<bool, int> hash_lookup(const unsigned);
 
   void print_table();
-  
+
   DLZ() {
     item itm(0);
     items.push_back(itm);
@@ -122,10 +137,9 @@ struct DLZ {
   }
 };
 
-
 // Primary items are must inserted before secondary items.
 void DLZ::add_primary_to_header(std::string name) {
-  const llng i = N1 + 1;
+  const int i = N1 + 1;
   item itm(name, i-1, 0);
   items.push_back(itm);
   items[i-1].rlink = i;
@@ -136,7 +150,7 @@ void DLZ::add_primary_to_header(std::string name) {
 
 // N = N1 + N2
 void DLZ::add_secondary_to_header(std::string name) {
-  const llng i = N1 + N2 + 1;
+  const int i = N1 + N2 + 1;
   item itm(name);
   if (0 == N2) {
     itm.set_llink(i);
@@ -159,13 +173,13 @@ void DLZ::set_header_items() {
     items[N1+1].llink = N1+N2+1;
     items[N1+N2].rlink = N1+N2+1;
   }
-  for (ullng i = 1; i <= N1; ++i) {
+  for (int i = 1; i <= N1; ++i) {
     node x(0, i, i, -100);
     nodes.push_back(x);
     ++Z;
   }
-  for (ullng i = N1+1; i <= N1+N2; ++i) {
-    node x(0, i, i , 0);
+  for (int i = N1+1; i<= N1+N2; ++i) {
+    node x(0, i, i, 0);
     nodes.push_back(x);
     ++Z;
   }
@@ -218,7 +232,7 @@ void DLZ::read_instance() {
     ++Z;
   }
     
-  llng ptr_spacer = Z;
+  int ptr_spacer = Z;
   
   // read options
   while (std::getline(std::cin, line)) {
@@ -233,7 +247,7 @@ void DLZ::read_instance() {
     std::istringstream iss(line);
     std::string s;
     while (iss >> s) {
-      llng c = 0;
+      int c = 0;
       
       std::string name = "";
       std::string color = "";
@@ -251,15 +265,15 @@ void DLZ::read_instance() {
         name = s;
       }
 
-      llng t = names[name];
-      llng u = nodes[t].ulink;
+      int t = names[name];
+      int u = nodes[t].ulink;
       node tmp(t, u, t, c);
-      const llng x = Z + 1;
+      const int x = Z + 1;
       
       nodes.push_back(tmp);
       nodes[u].dlink = x;
       nodes[t].ulink = x;
-      nodes[t].top += 1;
+      ++nodes[t].top;
       ++Z;
     }
     
@@ -272,84 +286,84 @@ void DLZ::read_instance() {
   }
 }
 
-void DLZ::cover(const ullng i) {
+void DLZ::cover(const int i) {
   // std::cout << "cover " << i << " : " << std::endl;
-  for (ullng p = nodes[i].dlink; i != p; p = nodes[p].dlink) {
+  for (int p = nodes[i].dlink; i != p; p = nodes[p].dlink) {
     // std::cout << "p: " << p << std::endl;
     hide(p);
   }
-  ullng l = items[i].llink, r = items[i].rlink;
+  int l = items[i].llink, r = items[i].rlink;
   items[l].rlink = r;
   items[r].llink = l;
 }
 
-void DLZ::hide(const ullng p) {
-  for (ullng q = p+1; p != q; ) {
-    llng x = nodes[q].top;
-    ullng u = nodes[q].ulink;
-    ullng d = nodes[q].dlink;
+void DLZ::hide(const int p) {
+  for (int q = p+1; p != q; ) {
+    int x = nodes[q].top;
+    int u = nodes[q].ulink;
+    int d = nodes[q].dlink;
     
     if (x <= 0) q = u;
     else {
       nodes[u].dlink = d;
       nodes[d].ulink = u;
-      nodes[x].top -= 1;
-      q += 1;
+      --nodes[x].top;
+      ++q;
     }
   }
 }
 
-void DLZ::commit(const ullng p, const ullng j) {
+void DLZ::commit(const int p, const int j) {
   if (0 == nodes[p].color) cover(j);
   if (0 < nodes[p].color) purify(p);
 }
 
-void DLZ::purify(const ullng p) {
+void DLZ::purify(const int p) {
   // std::cout << "  purify: " << p << std::endl;
-  const llng c = nodes[p].color;
-  const llng i = nodes[p].top;
+  const int c = nodes[p].color;
+  const int i = nodes[p].top;
   nodes[i].color = c;
-  for (llng q = nodes[i].dlink; i != q; q = nodes[q].dlink) {
+  for (int q = nodes[i].dlink; i != q; q = nodes[q].dlink) {
     if (c == nodes[q].color) nodes[q].color = -1;
     else hide(q);
   }
 }
 
-void DLZ::uncover(const ullng i) {
+void DLZ::uncover(const int i) {
   // std::cout << "uncover " << i << std::endl;
-  ullng l = items[i].llink, r = items[i].rlink;
+  int l = items[i].llink, r = items[i].rlink;
   items[l].rlink = i;
   items[r].llink = i;
-  for (ullng p = nodes[i].ulink; i != p; p = nodes[p].ulink) unhide(p);
+  for (int p = nodes[i].ulink; i != p; p = nodes[p].ulink) unhide(p);
 }
 
-void DLZ::unhide(const ullng p) {
+void DLZ::unhide(const int p) {
   // std::cout << "  unhide: " << p << std::endl;
-  for (ullng q = p-1; p != q; ) {
-    llng x = nodes[q].top;
-    ullng u = nodes[q].ulink;
-    ullng d = nodes[q].dlink;
+  for (int q = p-1; p != q; ) {
+    int x = nodes[q].top;
+    int u = nodes[q].ulink;
+    int d = nodes[q].dlink;
 
     if (x <= 0) q = d;
     else {
       nodes[d].ulink = q;
       nodes[u].dlink = q;
-      nodes[x].top += 1;
-      q -= 1;
+      ++nodes[x].top;
+      --q;
     }
   }
 }
 
-void DLZ::uncommit(const ullng p, const ullng j) {
+void DLZ::uncommit(const int p, const int j) {
   if (0 == nodes[p].color) uncover(j);
   if (0 < nodes[p].color) unpurify(p);
 }
 
-void DLZ::unpurify(const ullng p) {
+void DLZ::unpurify(const int p) {
   // std::cout << "  unpurify: " << p << std::endl;
-  const llng c = nodes[p].color;
-  const llng i = nodes[p].top;
-  for (llng q = nodes[i].ulink; i != q; q = nodes[q].ulink) {
+  const int c = nodes[p].color;
+  const int i = nodes[p].top;
+  for (int q = nodes[i].ulink; i != q; q = nodes[q].ulink) {
     if (nodes[q].color < 0) nodes[q].color = c;
     else unhide(q);
   }
@@ -357,26 +371,26 @@ void DLZ::unpurify(const ullng p) {
 
 // In order to obtain an ordered ZDD, select the left most item
 // if there is item i to be covered and its len is 0, then return -1
-llng DLZ::select_item() {
-  ullng i = items[0].rlink;
+int DLZ::select_item() {
+  int i = items[0].rlink;
   if (0 >= nodes[i].top) return -1;
   return i;
 }
 
-std::vector<std::vector<ullng>> DLZ::collect_options(const ullng i) {
-  std::vector<std::vector<ullng>> O;
-  ullng p = nodes[i].dlink;
+std::vector<std::vector<int>> DLZ::collect_options(const int i) {
+  std::vector<std::vector<int>> O;
+  int p = nodes[i].dlink;
   while (i != p) {
-    std::vector<ullng> o;
+    std::vector<int> o;
     o.push_back(p);
-    ullng q = p+1;
+    int q = p+1;
     while (p != q) {
       if (nodes[q].top <= 0) {
 	q = nodes[q].ulink;
 	continue;
       }
       o.push_back(q);
-      q += 1;
+      ++q;
     }
     O.push_back(o);
     p = nodes[p].dlink;
@@ -387,7 +401,7 @@ std::vector<std::vector<ullng>> DLZ::collect_options(const ullng i) {
 void DLZ::prepare_signature() {
   int q = 1, r = 0, sigptr = 0;
   std::srand(time(NULL));
-  for (ullng k = N1+N2; 0 != k; --k) {
+  for (int k = N1+N2; 0 != k; --k) {
     if (k <= N1) { // primary item
       if (63 == r) ++q, r = 0;
       inx tmp(rand(), 1, r, "-");
@@ -397,17 +411,17 @@ void DLZ::prepare_signature() {
       items[k].wd = q;
       ++r;
     } else { // secondary item
-      if ((llng)k == nodes[k].dlink) { // this secondary items does not appear the instance
-	ullng l, r;
+      if (k == nodes[k].dlink) { // this secondary items does not appear the instance
+	int l, r;
 	l = items[k].llink, r = items[k].rlink;
 	items[l].rlink = r, items[r].llink = l;
 	continue;
       }
       unsigned cc = 1;
       {
-	std::unordered_set<llng> usedcolor;
-	for (ullng p = nodes[k].dlink; k != p; p = nodes[p].dlink) {
-	  llng i = nodes[p].color;
+	std::unordered_set<int> usedcolor;
+	for (int p = nodes[k].dlink; k != p; p = nodes[p].dlink) {
+	  int i = nodes[p].color;
 	  if (0 != i) {
 	    if (!usedcolor.count(i)) {
 	      usedcolor.insert(i);
@@ -439,8 +453,9 @@ unsigned DLZ::compute_signature() {
   int off = 1, sig, offset;
 
   if (cacheptr + sigsiz >= CACHESIZE) exit(-1);
-  for (ullng k = N1+N2; k > N1; --k) {
+  for (int k = N1+N2; k > N1; --k) {
     if (nodes[k].top == 0) continue;
+    if (secondary_count[k-N1-1] == 2) continue;
     sig = items[k].sig;
     offset = items[k].wd;
     while (off < offset) {
@@ -449,12 +464,18 @@ unsigned DLZ::compute_signature() {
       ++off;
       sigacc = 0;
     }
-
-    sig += nodes[k].color;
+    
+    /*
+    if (secondary_count[k-N1-1] != 0 && nodes[k].color != -100)
+       sig += nodes[k].color;
+    */
+    if (secondary_count[k-N1-1] != 0)
+      sig += nodes[k].color;
+    
     sighash += siginx[sig].hash;
     sigacc += (long long)siginx[sig].code << siginx[sig].shift;
   }
-  for (ullng k = items[0].llink; k != 0; k = items[k].llink) {
+  for (int k = items[0].llink; k != 0; k = items[k].llink) {
     sig = items[k].sig;
     offset = items[k].wd;
     while (off < offset) {
@@ -497,7 +518,7 @@ ZBDD DLZ::search() {
   }
 
   // select item i
-  const llng i = select_item();
+  const int i = select_item();
   if (-1 == i) {
     return ZBDD(0);
   }
@@ -512,26 +533,26 @@ ZBDD DLZ::search() {
   
   ZBDD z = ZBDD(0);
   // collect the set of remaining options having i
-  std::vector<std::vector<ullng>> O = collect_options(i);
+  std::vector<std::vector<int>> O = collect_options(i);
   for (auto X : O) {
-    opt_number.push_back((int)std::abs(nodes[X[0]-1].top)+1);
+    opt_number.push_back(std::abs(nodes[X[0]-1].top)+1);
     for (auto p : X) {
       // std::cout << "commit: " << p << ", " << nodes[p].top << std::endl;
-      if (nodes[p].top > (llng)N1) ++secondary_count[nodes[p].top-N1-1];
+      if (nodes[p].top > N1) ++secondary_count[nodes[p].top-N1-1];
       commit(p, nodes[p].top);
     }
     
     z += search();
-    
+
     opt_number.pop_back();
     for (auto p = X.rbegin(); p != X.rend(); ++p) {
-      if (nodes[*p].top > (llng)N1) --secondary_count[nodes[*p].top-N1-1];
+      if (nodes[*p].top > N1) --secondary_count[nodes[*p].top-N1-1];
       uncommit(*p, nodes[*p].top);
     }
   }
   cache[hash[t.second]-1] = ZDD.size();
   ZDD.push_back(z);
-  // std::cout << opt_number.back() << std::endl;;
+
   return z * ZBDD(1).Change(opt_number.back());
 }
 
@@ -616,7 +637,6 @@ void DLZ::print_table() {
   }
 }
 
-
 int main() {
   BDD_Init(1024, 1024 * 1024 * 1024);
   DLZ d;
@@ -628,7 +648,16 @@ int main() {
   if (NULL == cache) exit(1);
   hash = (ullng*)malloc(HASHSIZE * sizeof(ullng));
   if (NULL == cache) exit(1);
-
+  
   ZBDD z = d.search();
-  std::cout << z.Card() << std::endl;
+  z = z.OnSet0(z.Top());
+  if (z.Card() == bddnull) {
+    std::cout << "0x" <<z.CardMP16(NULL) << std::endl;
+  } else {
+    std::cout << z.Card() << std::endl;
+  }
+  
+  // std::cout << sbddh::ZStr(z) << std::endl;
+  
+  return 0;
 }

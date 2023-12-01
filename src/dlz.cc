@@ -46,6 +46,7 @@ struct item {
     name = "-";
     llink = 0;
     rlink = 0;
+    sig = DUMMY;
   }
 
   item(std::string s) {
@@ -53,7 +54,7 @@ struct item {
   }
   
   item(std::string n, int prev, int next)
-    : name(n), llink(prev), rlink(next) {}
+    : name(n), llink(prev), rlink(next) { sig = DUMMY; }
 };
 
 struct inx {
@@ -336,10 +337,11 @@ void DLZ::read_instance() {
       std::string namae = "";
       std::string color = "";
       int pos;
-      if (std::string::npos != (pos = std::string(s).find(':'))) { // with color
+      // if (std::string::npos != (pos = std::string(s).find(':'))) { // with color
+      if (-1 != (pos = std::string(s).find(':'))) { // with color
 	for (int i = 0; i < pos; ++i) namae += s[i];
-	for (int i = pos+1; i < s.size(); ++i) color += s[i];
-	int i = 0;
+	for (unsigned i = pos+1; i < s.size(); ++i) color += s[i];
+	unsigned i = 0;
 	for ( ; i < colors.size(); ++i)
 	  if (color == colors[i]) break;
 	if (colors.size() == i) colors.push_back(color);
@@ -610,7 +612,7 @@ std::pair<bool, int> DLZ::hash_lookup(unsigned sighash) {
   int hh = (sighash >> (LOG_HASHSIZE - 1)) | 1;
   while (0 != hash[h]) {
     int s = hash[h];
-    for (int l = 0; l < sigsiz-1; ++l) {
+    for (unsigned l = 0; l < sigsiz-1; ++l) {
       if (cache[s+l] != cache[cacheptr+l+1]) break;
       if (0 != (cache[s+l] & SIGNBIT)) continue;
       return {true, h};
@@ -676,60 +678,15 @@ ZBDD DLZ::search() {
   return z * ZBDD(1).Change(opt_number.back());
 }
 
-/*
-ZBDD DLZ::search() {
-  // if no remaining items in items then output R and return
-  if (0 == items[0].rlink) {
-    return;
-  }
-
-  // select item i
-  const llng i = select_item();
-  if (-1 == i) return;
-
-  // std::cout << "select item " << i << std::endl;
-
-  // collect the set of remaining options having i
-  std::vector<std::vector<int>> O = collect_options(i);
-
-  cover(i);
-  for (auto X : O) {
-    R.push_back(X[0]);
-
-    for (int p = X[0]+1; X[0] != p; ) {
-      if (nodes[p].top <= 0) {
-	p = nodes[p].ulink;
-	continue;
-      }
-      commit(p, nodes[p].top);
-      ++p;
-    }
-    
-    search(R);
-
-    for (int p = X[0]-1; X[0] != p; ) {
-      if (nodes[p].top <= 0) {
-	p = nodes[p].dlink;
-	continue;
-      }
-      uncommit(p, nodes[p].top);
-      --p;
-    }
-    
-    R.pop_back();
-  }
-  uncover(i);
-}
-*/
-
 int main()
 {
-    BDD_Init(1024, 1024 * 1024 * 1024);
   DLZ d;
+  d.init();
   d.read_instance();
+  // d.print_table();
+  BDD_Init(1024, 1024 * 1024 * 1024);  
   for (int i = 0; i < d.opt_number.back(); ++i) BDD_NewVar();
   d.prepare_signature();
-  
   
   ZBDD z = d.search();
   std::cout << z.Card() << std::endl;

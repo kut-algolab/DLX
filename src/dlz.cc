@@ -199,7 +199,8 @@ void DLZ::init_nodes() {
 }
 
 void DLZ::print_table() {
-  std::cout << "print table" << std::endl;
+  //std::cout << "print table" << std::endl;
+  std::cout << "N1 = " << N1 << ", N2 = " << N2 << std::endl;
 
   // print items
   std::string number, name, ll, rl;
@@ -378,14 +379,16 @@ void DLZ::read_instance() {
 // select item i using the MRV heuristic
 // if there is item i to be covered and its len is 0, then return -1
 int DLZ::select_item() {
-  int ptr = items[0].rlink;
-  int i = items[0].rlink;
-  while (0 != ptr) {
-    if (nodes[ptr].top < nodes[i].top) i = ptr;
-    ptr = items[ptr].rlink;
-  }
-  if (0 == nodes[i].top) return -1;
-  return i;
+  // int ptr = items[0].rlink;
+  // int i = items[0].rlink;
+  // while (0 != ptr) {
+  //   if (nodes[ptr].top < nodes[i].top) i = ptr;
+  //   ptr = items[ptr].rlink;
+  // }
+  // if (0 == nodes[i].top) return -1;
+  // return i;
+  if (0 == items[0].rlink) return -1;
+  return items[0].rlink;
 }
 
 std::vector<std::vector<int> > DLZ::collect_options(const int i) {
@@ -430,12 +433,12 @@ void DLZ::hide(const int p) {
       }
       nodes[x].top -= 1;
       /* FIXME */
-      // if (0 == nodes[x].top && N1 < x) {
-      // 	int l = items[x].llink;
-      // 	int r = items[x].rlink;
-      // 	items[l].rlink = r;
-      // 	items[r].llink = l;
-      // }
+      if (0 == nodes[x].top && N1 < x) {
+	int l = items[x].llink;
+	int r = items[x].rlink;
+	items[l].rlink = r;
+	items[r].llink = l;
+      }
       q += 1;
     }
   }
@@ -454,19 +457,19 @@ void DLZ::purify(const int p) {
   for (int q = nodes[i].dlink; i != q; q = nodes[q].dlink) {
     if (c == nodes[q].color) nodes[q].color = -1;
     else {
-      hide(q);
       ll -= 1;
+      hide(q);
     }
   }
   /* FIXME */
-  // if (ll > 0) nodes[i].top = ll;
-  // else {
-  //   int l = items[i].llink;
-  //   int r = items[i].rlink;
-  //   items[l].rlink = r;
-  //   items[r].llink = l;
-  //   nodes[i].top = -1; // SIGNAL for unpurification
-  // }
+  if (ll > 0) nodes[i].top = ll;
+  else {
+    int l = items[i].llink;
+    int r = items[i].rlink;
+    items[l].rlink = r;
+    items[r].llink = l;
+    nodes[i].top = -1; // SIGNAL for unpurification
+  }
 }
 
 void DLZ::uncover(const int i) {
@@ -490,12 +493,12 @@ void DLZ::unhide(const int p) {
       }
       nodes[x].top += 1;
       /* FIXME */
-      // if (1 == nodes[x].top && N1 < x) {
-      // 	int l = items[x].llink;
-      // 	int r = items[x].rlink;
-      // 	items[l].rlink = x;
-      // 	items[r].llink = x;
-      // }
+      if (1 == nodes[x].top && N1 < x) {
+	int l = items[x].llink;
+	int r = items[x].rlink;
+	items[l].rlink = x;
+	items[r].llink = x;
+      }
       q -= 1;
     }
   }
@@ -512,13 +515,13 @@ void DLZ::unpurify(const int p) {
   nodes[i].color = 0;
   int ll = nodes[i].top;
   /* FIXME */
-  // if (-1 == nodes[i].top) {
-  //   ll = 0;
-  //   int l = items[i].llink;
-  //   int r = items[i].rlink;
-  //   items[l].rlink = i;
-  //   items[r].llink = i;
-  // }
+  if (-1 == ll) {
+    ll = 0;
+    int l = items[i].llink;
+    int r = items[i].rlink;
+    items[l].rlink = i;
+    items[r].llink = i;
+  }
   for (int q = nodes[i].ulink; i != q; q = nodes[q].ulink) {
     if (nodes[q].color < 0) nodes[q].color = c;
     else {
@@ -667,7 +670,8 @@ ZBDD DLZ::search() {
 	p = nodes[p].ulink;
 	continue;
       }
-      commit(p, nodes[p].top);
+      if (nodes[p].top <= N1 || 0 != nodes[nodes[p].top].top)
+	commit(p, nodes[p].top);
       p += 1;
     }
 
@@ -679,7 +683,8 @@ ZBDD DLZ::search() {
 	p = nodes[p].dlink;
 	continue;
       }
-      uncommit(p, nodes[p].top);
+      if (nodes[p].top <= N1 || 0 != nodes[nodes[p].top].top)
+	uncommit(p, nodes[p].top);
       p -= 1;
     }
   }

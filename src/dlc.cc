@@ -4,110 +4,110 @@
 #include <unordered_set>
 #include <unordered_map>
 
+#define DUMMY (1U << 31) - 1
+
 typedef unsigned long long ullng;
 typedef long long llng;
 
 struct node {
-  llng top;
-  llng ulink;
-  llng dlink;
-  llng color;
+  int top;
+  int ulink;
+  int dlink;
+  int color;
 
-  node(int i) : ulink(-100), dlink(-100), color(-100) {
-    if (-1 == i) { // spacer node
-      top = 0;
-      color = 0;
-    }
-    else top = -100; // header node
+  node(char c) { // For node 0
+    top = DUMMY;
+    ulink = DUMMY;
+    dlink = DUMMY;
+    color = DUMMY;
   }
-  node(llng t, llng up, llng down, llng color) : top(t), ulink(up), dlink(down), color(color) {}
   
-  friend std::ostream& operator<<(std::ostream& ss, const node& node) {
-    if (-100 == node.top) ss << "-";
-    else ss << node.top;
-    if (-100 == node.ulink) ss << " -";
-    else ss << " " << node.ulink;
-    if (-100 == node.dlink) ss << " -";
-    else ss << " " << node.dlink;
-    // if (-100 == node.color) ss << " -";
-    // else ss << " " << colors[node.color];
-    return ss;
-  };
+  node(int t) : top(t) { // For spacer node
+  }
+      
+  node(int t, int up, int down, int color) :
+    top(t), ulink(up), dlink(down), color(color) {}
 };
 
 struct item {
   std::string name;
-  ullng llink;
-  ullng rlink;
+  int llink;
+  int rlink;
 
-  item(unsigned u = 0) : name("-"), llink(0), rlink(0) {} // header of items
-  item(std::string n) :  name(n) {}
-  item(std::string n, ullng prev, ullng next)
+  item(char c) { // For item 0 and N1+N2+1
+    name = "-";
+    llink = 0;
+    rlink = 0;
+  }
+
+  item(std::string s) {
+    name = s;
+  }
+  
+  item(std::string n, int prev, int next)
     : name(n), llink(prev), rlink(next) {}
-  void set_llink(ullng prev) { llink = prev; }
-  void set_rlink(ullng next) { rlink = next; }
-
-  friend std::ostream& operator<<(std::ostream& ss, const item& itm) {
-    ss << itm.name << " " << itm.llink << " " << itm.rlink;
-    return ss;
-  };
 };
 
-struct DLX {
+struct DLC {
   /*** data members ***/
-  ullng N1 = 0; // # of primary items
-  ullng N2 = 0; // # of secondary items
-  ullng Z = 0;  // last spacer address
+  int N1 = 0; // # of primary items
+  int N2 = 0; // # of secondary items
+  int Z = 0;  // last spacer address
 
   std::vector<item> items;
   std::vector<node> nodes;
-  std::unordered_map<std::string, ullng> names;
+  std::unordered_map<std::string, int> names;
   std::vector<std::string> colors;
 
   ullng sols = 0; // # of solutions
   bool print_flag = false;
   
   /*** member functions ***/
+  void init();
   void read_instance();
   void add_primary_to_header(std::string);
+  void init_secondary_header();
   void add_secondary_to_header(std::string);
-  void set_header_items();
+  void add_header_for_secondary();
+  void init_nodes();
 
-  void cover(const ullng);
-  void hide(const ullng);
-  void commit(const ullng, const ullng);
-  void purify(const ullng);
+  void cover(const int);
+  void hide(const int);
+  void commit(const int, const int);
+  void purify(const int);
   
-  void uncover(const ullng);
-  void unhide(const ullng);
-  void uncommit(const ullng, const ullng);
-  void unpurify(const ullng);
+  void uncover(const int);
+  void unhide(const int);
+  void uncommit(const int, const int);
+  void unpurify(const int);
 
-  void search(std::vector<ullng> &);
-  llng select_item();
-  std::vector<std::vector<ullng>> collect_options(const ullng);
+  void search(std::vector<int> &);
+  int select_item();
+  std::vector<std::vector<int>> collect_options(const int);
 
-  void print_items();
-  void print_nodes();
-  void print_option(ullng);
-  void print_options(std::vector<ullng> &);
+  void print_table();
+  void print_option(int);
+  void print_options(std::vector<int>&);
   void print_all_solutions();
   ullng get_num_of_solutions() { return sols; };
   
-  DLX() {
-    item itm(0);
-    items.push_back(itm);
-
-    node node(0);
-    nodes.push_back(node);
-
-    colors.push_back("-");
-  }
+  DLC() {}
 };
 
-// Primary items are must inserted before secondary items.
-void DLX::add_primary_to_header(std::string name) {
-  const llng i = N1 + 1;
+void DLC::init() {
+  item itm('0');
+  items.push_back(itm);
+
+  node node('0');
+  nodes.push_back(node);
+
+  colors.push_back("-");
+}
+
+
+// // Primary items are must inserted before secondary items.
+void DLC::add_primary_to_header(std::string name) {
+  const int i = N1 + 1;
   item itm(name, i-1, 0);
   items.push_back(itm);
   items[i-1].rlink = i;
@@ -117,34 +117,137 @@ void DLX::add_primary_to_header(std::string name) {
 }
 
 // N = N1 + N2
-void DLX::add_secondary_to_header(std::string name) {
-  const llng i = N1 + N2 + 1;
+void DLC::add_secondary_to_header(std::string name) {
+  const int i = N1 + N2 + 1;
   item itm(name);
+  names[name] = i;
+  items.push_back(itm);
   if (0 == N2) {
-    itm.set_llink(i);
-    itm.set_rlink(i);
+    items[i].llink = i;
+    items[i].rlink = i;
   } else {
-    itm.set_llink(i-1);
-    itm.set_rlink(N1+1);
+    items[i].llink = i-1;
+    items[i].rlink = N1+1;
+    items[N1+i].llink = i;
     items[i-1].rlink = i;
   }
-  items.push_back(itm);
-  items[N1+1].llink = i;
-  names[name] = i;
   ++N2;
 }
 
-void DLX::set_header_items() {
-  for (ullng i = 1; i <= N1 + N2; ++i) {
-    node x(0, i, i, -100);
-    nodes.push_back(x);
-    ++Z;
+void DLC::add_header_for_secondary() {
+  if (0 != N2) {
+    item itm('-');
+    items.push_back(itm);
+
+    // First secondary item
+    items[N1+1].llink = N1+N2+1; 
+
+    // Last secondary item
+    items[N1+N2].rlink = N1+N2+1;
+
+    // Header for secondary items
+    items[N1+N2+1].llink = N1+N2; 
+    items[N1+N2+1].rlink = N1+1;
   }
 }
 
+void DLC::init_nodes() {
+  for (int i = 1; i <= N1+N2; ++i) {
+    node node(0, i, i, DUMMY);
+    nodes.push_back(node);
+    Z += 1;
+  }
+
+  // First spacer node
+  node node(0, DUMMY, DUMMY, DUMMY);
+  nodes.push_back(node);
+  Z += 1;
+}
+
+void DLC::print_table() {
+  std::cout << "print table" << std::endl;
+
+  // print items
+  std::string number, name, ll, rl;
+  number += "i:\t\t0\t";
+  name += "NAME(i):\t-\t";
+  ll += "LLINK(i):\t" + std::to_string(items[0].llink) + "\t";
+  rl += "RLINK(i):\t" + std::to_string(items[0].rlink) + "\t";
+  for (int i = items[0].rlink; i != 0; i = items[i].rlink) {
+    number += std::to_string(i) + "\t";
+    name += items[i].name + "\t";
+    ll += std::to_string(items[i].llink) + "\t";
+    rl += std::to_string(items[i].rlink) + "\t";
+  }
+  for (int i = items[N1+N2+1].rlink; i != N1+N2+1; i = items[i].rlink) {
+    number += std::to_string(i) + "\t";
+    name += items[i].name + "\t";
+    ll += std::to_string(items[i].llink) + "\t";
+    rl += std::to_string(items[i].rlink) + "\t";
+  }
+  number += std::to_string(N1+N2+1);
+  name += items[N1+N2+1].name;
+  ll += std::to_string(items[N1+N2+1].llink);
+  rl += std::to_string(items[N1+N2+1].rlink);
+  
+  std::cout << number << std::endl << name << std::endl << ll << std::endl << rl << std::endl << std::endl;;
+
+  // print options
+  number.clear();
+  std::string top, ul, dl, co;
+  number += "i:\t\t";
+  top += "LEN(i):\t\t";
+  ul += "ULINK(i):\t";
+  dl += "DLINK(i):\t";
+  co += "COLOR(i):\t";
+  for (int i = 0; i <= N1+N2+1; ++i) {
+    number += std::to_string(i) + "\t";
+    top += std::to_string(nodes[i].top) + "\t";
+    ul += std::to_string(nodes[i].ulink) + "\t";
+    dl += std::to_string(nodes[i].dlink) + "\t";
+    co += std::to_string(nodes[i].color) + "\t";
+  }
+  std::cout << number << std::endl << top << std::endl << ul << std::endl << dl << std::endl << co << std::endl << std::endl;
+  
+  number.clear();
+  top.clear();
+  ul.clear();
+  dl.clear();
+  co.clear();
+  number += "i:\t\t";
+  top += "TOP(i):\t\t";
+  ul += "ULINK(i):\t";
+  dl += "DLINK(i):\t";
+  co += "COLOR(i):\t";
+  for (int i = N1+N2+2, col = 0; i <= Z; ++i, ++col) {
+    number += std::to_string(i) + "\t";
+    top += std::to_string(nodes[i].top) + "\t";
+    ul += std::to_string(nodes[i].ulink) + "\t";
+    dl += std::to_string(nodes[i].dlink) + "\t";
+    co += std::to_string(nodes[i].color) + "\t";
+    if (col == 15) {
+      std::cout << number << std::endl << top << std::endl << ul << std::endl << dl << std::endl << co << std::endl << std::endl;
+      number.clear();
+      top.clear();
+      ul.clear();
+      dl.clear();
+      co.clear();
+      number += "i:\t\t";
+      top += "TOP(i):\t\t";
+      ul += "ULINK(i):\t";
+      dl += "DLINK(i):\t";
+      co += "COLOR(i):\t";
+      col = -1;
+    }
+  }
+  if (number != "i:\t\t") {
+    std::cout << number << std::endl << top << std::endl << ul << std::endl
+	      << dl << std::endl << co << std::endl << std::endl;
+  }
+}
 
 // FIXME; we must check the syntax of the first line
-void DLX::read_instance() {
+void DLC::read_instance() {
   N1 = N2 = 0;
   std::string line;
 
@@ -178,20 +281,14 @@ void DLX::read_instance() {
       items.insert(s);
       add_secondary_to_header(s);
     }
+    add_header_for_secondary();
     break;
   }
-  set_header_items();
   
-  // add spacer node
-  {
-    node tmp(-1);
-    nodes.push_back(tmp);
-    ++Z;
-  }
-    
-  llng ptr_spacer = Z;
-  
+  init_nodes();
+
   // read options
+  int ptr_spacer = Z;
   while (std::getline(std::cin, line)) {
     // std::cout << Z << ": " << line << std::endl;
     if ('|' == line[0]) {
@@ -200,31 +297,26 @@ void DLX::read_instance() {
     std::istringstream iss(line);
     std::string s;
     while (iss >> s) {
-      llng c = 0;
-      
-      std::string name = "";
+      int c = 0;
+      std::string namae = "";
       std::string color = "";
       int pos;
       if (std::string::npos != (pos = std::string(s).find(':'))) { // with color
-	for (int i = 0; i < pos; ++i) name += s[i];
+	for (int i = 0; i < pos; ++i) namae += s[i];
 	for (int i = pos+1; i < s.size(); ++i) color += s[i];
-	// if (!colors.count(color)) {
-	//   colors[color] = colors.size() + 1;
-	// }
-	// c = colors[color];
 	int i = 0;
 	for ( ; i < colors.size(); ++i)
 	  if (color == colors[i]) break;
 	if (colors.size() == i) colors.push_back(color);
 	c = i;
       } else {
-	name = s;
+	namae = s;
       }
 
-      llng t = names[name];
-      llng u = nodes[t].ulink;
+      int t = names[namae]; // the id of the item whose name is name
+      int u = nodes[t].ulink;
       node tmp(t, u, t, c);
-      const llng x = Z + 1;
+      const int x = Z + 1;
       
       nodes.push_back(tmp);
       nodes[u].dlink = x;
@@ -234,7 +326,7 @@ void DLX::read_instance() {
     }
     
     // add spacer node
-    node tmp(nodes[ptr_spacer].top-1, ptr_spacer+1, -100, 0);
+    node tmp(nodes[ptr_spacer].top-1, ptr_spacer+1, DUMMY, 0);
     nodes[ptr_spacer].dlink = Z;
     nodes.push_back(tmp);
     ++Z;
@@ -242,11 +334,13 @@ void DLX::read_instance() {
   }
 }
 
+
+
 // select item i using the MRV heuristic
 // if there is item i to be covered and its len is 0, then return -1
-llng DLX::select_item() {
-  ullng ptr = items[0].rlink;
-  ullng i = items[0].rlink;
+int DLC::select_item() {
+  int ptr = items[0].rlink;
+  int i = items[0].rlink;
   while (0 != ptr) {
     if (nodes[ptr].top < nodes[i].top) i = ptr;
     ptr = items[ptr].rlink;
@@ -255,13 +349,13 @@ llng DLX::select_item() {
   return i;
 }
 
-std::vector<std::vector<ullng>> DLX::collect_options(const ullng i) {
-  std::vector<std::vector<ullng>> O;
-  llng p = nodes[i].dlink;
+std::vector<std::vector<int>> DLC::collect_options(const int i) {
+  std::vector<std::vector<int>> O;
+  int p = nodes[i].dlink;
   while (i != p) {
-    std::vector<ullng> o;
+    std::vector<int> o;
     o.push_back(p);
-    ullng q = p+1;
+    int q = p+1;
     while (p != q) {
       if (nodes[q].top <= 0) {
 	q = nodes[q].ulink;
@@ -276,22 +370,18 @@ std::vector<std::vector<ullng>> DLX::collect_options(const ullng i) {
   return O;
 }
 
-void DLX::cover(const ullng i) {
-  // std::cout << "cover " << i << " : " << std::endl;
-  for (llng p = nodes[i].dlink; i != p; p = nodes[p].dlink) {
-    // std::cout << "p: " << p << std::endl;
-    hide(p);
-  }
-  ullng l = items[i].llink, r = items[i].rlink;
+void DLC::cover(const int i) {
+  for (int p = nodes[i].dlink; i != p; p = nodes[p].dlink) hide(p);
+  int l = items[i].llink, r = items[i].rlink;
   items[l].rlink = r;
   items[r].llink = l;
 }
 
-void DLX::hide(const ullng p) {
-  for (ullng q = p+1; p != q; ) {
-    llng x = nodes[q].top;
-    ullng u = nodes[q].ulink;
-    ullng d = nodes[q].dlink;
+void DLC::hide(const int p) {
+  for (int q = p+1; p != q; ) {
+    int x = nodes[q].top;
+    int u = nodes[q].ulink;
+    int d = nodes[q].dlink;
     
     if (nodes[q].color < 0) {
       q += 1;
@@ -308,36 +398,33 @@ void DLX::hide(const ullng p) {
   }
 }
 
-void DLX::commit(const ullng p, const ullng j) {
+void DLC::commit(const int p, const int j) {
   if (0 == nodes[p].color) cover(j);
   if (0 < nodes[p].color) purify(p);
 }
 
-void DLX::purify(const ullng p) {
-  // std::cout << "  purify: " << p << std::endl;
-  const llng c = nodes[p].color;
-  const llng i = nodes[p].top;
+void DLC::purify(const int p) {
+  const int c = nodes[p].color;
+  const int i = nodes[p].top;
   nodes[i].color = c;
-  for (llng q = nodes[i].dlink; i != q; q = nodes[q].dlink) {
+  for (int q = nodes[i].dlink; i != q; q = nodes[q].dlink) {
     if (c == nodes[q].color) nodes[q].color = -1;
     else hide(q);
   }
 }
 
-void DLX::uncover(const ullng i) {
-  // std::cout << "uncover " << i << std::endl;
-  ullng l = items[i].llink, r = items[i].rlink;
+void DLC::uncover(const int i) {
+  int l = items[i].llink, r = items[i].rlink;
   items[l].rlink = i;
   items[r].llink = i;
-  for (llng p = nodes[i].ulink; i != p; p = nodes[p].ulink) unhide(p);
+  for (int p = nodes[i].ulink; i != p; p = nodes[p].ulink) unhide(p);
 }
 
-void DLX::unhide(const ullng p) {
-  // std::cout << "  unhide: " << p << std::endl;
-  for (ullng q = p-1; p != q; ) {
-    llng x = nodes[q].top;
-    ullng u = nodes[q].ulink;
-    ullng d = nodes[q].dlink;
+void DLC::unhide(const int p) {
+  for (int q = p-1; p != q; ) {
+    int x = nodes[q].top;
+    int u = nodes[q].ulink;
+    int d = nodes[q].dlink;
 
     if (nodes[q].color < 0) {
       q -= 1;
@@ -354,22 +441,21 @@ void DLX::unhide(const ullng p) {
   }
 }
 
-void DLX::uncommit(const ullng p, const ullng j) {
+void DLC::uncommit(const int p, const int j) {
   if (0 == nodes[p].color) uncover(j);
   if (0 < nodes[p].color) unpurify(p);
 }
 
-void DLX::unpurify(const ullng p) {
-  // std::cout << "  unpurify: " << p << std::endl;
-  const llng c = nodes[p].color;
-  const llng i = nodes[p].top;
-  for (llng q = nodes[i].ulink; i != q; q = nodes[q].ulink) {
+void DLC::unpurify(const int p) {
+  const int c = nodes[p].color;
+  const int i = nodes[p].top;
+  for (int q = nodes[i].ulink; i != q; q = nodes[q].ulink) {
     if (nodes[q].color < 0) nodes[q].color = c;
     else unhide(q);
   }
 }
 
-void DLX::search(std::vector<ullng> &R) {
+void DLC::search(std::vector<int> &R) {
   // if no remaining items in items then output R and return
   if (0 == items[0].rlink) {
     if (print_flag) print_options(R);
@@ -384,62 +470,70 @@ void DLX::search(std::vector<ullng> &R) {
   // std::cout << "select item " << i << std::endl;
 
   // collect the set of remaining options having i
-  std::vector<std::vector<ullng>> O = collect_options(i);
+  std::vector<std::vector<int>> O = collect_options(i);
+
+  cover(i);
   for (auto X : O) {
-    // Only add the address of the first item in option X to R
     R.push_back(X[0]);
 
-    for (auto p : X) {
-      // std::cout << "commit: " << p << ", " << nodes[p].top << std::endl;
+    for (int p = X[0]+1; X[0] != p; ) {
+      if (nodes[p].top <= 0) {
+	p = nodes[p].ulink;
+	continue;
+      }
       commit(p, nodes[p].top);
+      ++p;
     }
-    // print_items();
-    // print_nodes();
     
     search(R);
 
-    for (auto p = X.rbegin(); p != X.rend(); ++p) {
-      // std::cout << "uncommit: " << *p << ", " << nodes[*p].top << std::endl;
-      uncommit(*p, nodes[*p].top);
+    for (int p = X[0]-1; X[0] != p; ) {
+      if (nodes[p].top <= 0) {
+	p = nodes[p].dlink;
+	continue;
+      }
+      uncommit(p, nodes[p].top);
+      --p;
     }
     
     R.pop_back();
   }
+  uncover(i);
 }
 
-void DLX::print_items() {
-  printf("###### Print header #####\n\"(i) name llink rlink\"\n");
-  for (ullng i = 0; i <= N1 + N2; ++i) {
-    std::cout << "(" << i << ") " << items[i] << std::endl;
-  }
-}
+// void DLC::print_items() {
+//   printf("###### Print header #####\n\"(i) name llink rlink\"\n");
+//   for (ullng i = 0; i <= N1 + N2; ++i) {
+//     std::cout << "(" << i << ") " << items[i] << std::endl;
+//   }
+// }
 
-void DLX::print_nodes() {
-  printf("###### Print node #####\n");
-  printf("(i) top ulink dlink color\n");
-  printf("################# #####\n");
+// void DLC::print_nodes() {
+//   printf("###### Print node #####\n");
+//   printf("(i) top ulink dlink color\n");
+//   printf("################# #####\n");
 
-  for (ullng i = 0; i <= N1 + N2; ++i) {
-    std::string c = "-";
-    if (-100 != nodes[i].color) c = colors[nodes[i].color];
-    std::cout << "(" << i << " " << nodes[i] << " " << c << ") ";
-  }
-  std::cout << std::endl;
+//   for (ullng i = 0; i <= N1 + N2; ++i) {
+//     std::string c = "-";
+//     if (-100 != nodes[i].color) c = colors[nodes[i].color];
+//     std::cout << "(" << i << " " << nodes[i] << " " << c << ") ";
+//   }
+//   std::cout << std::endl;
   
-  for (ullng i = N1+N2+1; i <= Z; ++i) {
-    std::string c = "-";
-    if (-100 != nodes[i].color) c = colors[nodes[i].color];
-    std::cout << "(" << i << " " << nodes[i] << " " << c << ") ";
-    if (nodes[i].top <= 0) std::cout << std::endl;
-  }
-}
+//   for (ullng i = N1+N2+1; i <= Z; ++i) {
+//     std::string c = "-";
+//     if (-100 != nodes[i].color) c = colors[nodes[i].color];
+//     std::cout << "(" << i << " " << nodes[i] << " " << c << ") ";
+//     if (nodes[i].top <= 0) std::cout << std::endl;
+//   }
+// }
 
-void DLX::print_option(ullng p) {
+void DLC::print_option(int p) {
   std::cout << "{" << items[nodes[p].top].name;
   if (0 != nodes[p].color) {
     std::cout << ":" << colors[nodes[nodes[p].top].color];
   }
-  for (ullng q = p+1; p != q; ) {
+  for (int q = p+1; p != q; ) {
     if (nodes[q].top <= 0) q = nodes[q].ulink;
     else {
       std::cout << ", " << items[nodes[q].top].name;
@@ -452,30 +546,30 @@ void DLX::print_option(ullng p) {
   std::cout << "}";
 }
 
-void DLX::print_options(std::vector<ullng> &R) {
+void DLC::print_options(std::vector<int> &R) {
   std::cout << "{";
   print_option(R[0]);
-  for (ullng i = 1; i < R.size(); ++i) {
+  for (int i = 1; i < R.size(); ++i) {
     std::cout << ", ";
     print_option(R[i]);
   }
   std::cout << "}" << std::endl;
 }
 
-void DLX::print_all_solutions() {
-  std::vector<ullng> R;
+void DLC::print_all_solutions() {
+  std::vector<int> R;
   print_flag = true;
   search(R);
 }
 
 int main()
 {
-  DLX d;
+  DLC d;
+  d.init();
   d.read_instance();
-  // d.print_items();
-  // d.print_nodes();
+  // d.print_table();
   // d.print_all_solutions();
-  std::vector<ullng> R;
+  std::vector<int> R;
   d.search(R);
   std::cout << d.get_num_of_solutions() << std::endl;
   

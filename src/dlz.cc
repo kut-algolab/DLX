@@ -29,6 +29,7 @@ struct node {
   }
   
   node(int t) : top(t) { // For spacer node
+    color = 0;
   }
       
   node(int t, int up, int down, int color) :
@@ -428,12 +429,13 @@ void DLZ::hide(const int p) {
 	nodes[d].ulink = u;
       }
       nodes[x].top -= 1;
-      if (0 == nodes[x].top && N1 < x) {
-	int l = items[x].llink;
-	int r = items[x].rlink;
-	items[l].rlink = r;
-	items[r].llink = l;
-      }
+      /* FIXME */
+      // if (0 == nodes[x].top && N1 < x) {
+      // 	int l = items[x].llink;
+      // 	int r = items[x].rlink;
+      // 	items[l].rlink = r;
+      // 	items[r].llink = l;
+      // }
       q += 1;
     }
   }
@@ -441,29 +443,30 @@ void DLZ::hide(const int p) {
 
 void DLZ::commit(const int p, const int j) {
   if (0 == nodes[p].color) cover(j);
-  if (0 < nodes[p].color) purify(p);
+  else if (0 < nodes[p].color) purify(p);
 }
 
 void DLZ::purify(const int p) {
-  const int c = nodes[p].color;
   const int i = nodes[p].top;
+  const int c = nodes[p].color;
   int ll = nodes[i].top;
   nodes[i].color = c;
   for (int q = nodes[i].dlink; i != q; q = nodes[q].dlink) {
     if (c == nodes[q].color) nodes[q].color = -1;
     else {
       hide(q);
-      --ll;
+      ll -= 1;
     }
   }
-  if (ll > 0) nodes[i].top = ll;
-  else {
-    int l = items[i].llink;
-    int r = items[i].rlink;
-    items[l].rlink = r;
-    items[r].llink = l;
-    nodes[i].top = -1; // SIGNAL for unpurification
-  }
+  /* FIXME */
+  // if (ll > 0) nodes[i].top = ll;
+  // else {
+  //   int l = items[i].llink;
+  //   int r = items[i].rlink;
+  //   items[l].rlink = r;
+  //   items[r].llink = l;
+  //   nodes[i].top = -1; // SIGNAL for unpurification
+  // }
 }
 
 void DLZ::uncover(const int i) {
@@ -486,12 +489,13 @@ void DLZ::unhide(const int p) {
 	nodes[u].dlink = q;
       }
       nodes[x].top += 1;
-      if (1 == nodes[x].top && N1 < x) {
-	int l = items[x].llink;
-	int r = items[x].rlink;
-	items[l].rlink = x;
-	items[r].llink = x;
-      }
+      /* FIXME */
+      // if (1 == nodes[x].top && N1 < x) {
+      // 	int l = items[x].llink;
+      // 	int r = items[x].rlink;
+      // 	items[l].rlink = x;
+      // 	items[r].llink = x;
+      // }
       q -= 1;
     }
   }
@@ -499,22 +503,30 @@ void DLZ::unhide(const int p) {
 
 void DLZ::uncommit(const int p, const int j) {
   if (0 == nodes[p].color) uncover(j);
-  if (0 < nodes[p].color) unpurify(p);
+  else if (0 < nodes[p].color) unpurify(p);
 }
 
 void DLZ::unpurify(const int p) {
-  const int c = nodes[p].color;
   const int i = nodes[p].top;
-  if (-1 == nodes[i].top) {
-    int l = items[i].llink;
-    int r = items[i].rlink;
-    items[l].rlink = i;
-    items[r].llink = i;
-  }
+  const int c = nodes[p].color;
+  nodes[i].color = 0;
+  int ll = nodes[i].top;
+  /* FIXME */
+  // if (-1 == nodes[i].top) {
+  //   ll = 0;
+  //   int l = items[i].llink;
+  //   int r = items[i].rlink;
+  //   items[l].rlink = i;
+  //   items[r].llink = i;
+  // }
   for (int q = nodes[i].ulink; i != q; q = nodes[q].ulink) {
     if (nodes[q].color < 0) nodes[q].color = c;
-    else unhide(q);
+    else {
+      unhide(q);
+      ll += 1;
+    }
   }
+  nodes[i].top = ll;
 }
 
 void DLZ::prepare_signature() {
@@ -524,11 +536,9 @@ void DLZ::prepare_signature() {
     if (k <= N1) { // primary item
       if (63 == r) ++q, r = 0;
       inx tmp(rand(), q, r, 1, names[colors[k]]);
-      //inx tmp(rand(), 1, r, DUMMY);
       siginx.push_back(tmp);
       items[k].sig = sigptr;
       ++sigptr;
-      // siginx[items[k].sig].wd = q;
       ++r;
     } else { // secondary item
       if (k == nodes[k].dlink) { // this secondary items does not appear the instance
@@ -537,6 +547,7 @@ void DLZ::prepare_signature() {
 	items[l].rlink = r, items[r].llink = l;
 	continue;
       }
+      nodes[k].color = 0;
       unsigned cc = 1;
       {
 	std::unordered_set<llng> usedcolor;
@@ -556,10 +567,8 @@ void DLZ::prepare_signature() {
       if (r + t >= 63) ++q, r = 0;
 
       for (unsigned i = 0; i < cc; ++i) {
-	// inx tmp(rand(), 1+i, r, names[colors[i]]);
 	inx tmp(rand(), q, r, 1+i, names[colors[i]]);
 	siginx.push_back(tmp);
-	// siginx[items[k].sig].wd = q;
       }
       items[k].sig = sigptr;
       sigptr += cc;
@@ -576,7 +585,7 @@ unsigned DLZ::compute_signature() {
 
   if (cacheptr + sigsiz >= CACHESIZE) exit(-1);
   for (int k = items[N1+N2+1].llink; k != N1+N2+1; k = items[k].llink) {
-    if (nodes[k].top == 0) continue;
+    if (0 == nodes[k].top) continue;
     sig = items[k].sig;
     //printf("k = %d, sig = %d, offset = %d\n", k, sig, offset);
     offset = siginx[sig].wd;
@@ -659,7 +668,7 @@ ZBDD DLZ::search() {
 	continue;
       }
       commit(p, nodes[p].top);
-      ++p;
+      p += 1;
     }
 
     z += search();
@@ -671,7 +680,7 @@ ZBDD DLZ::search() {
 	continue;
       }
       uncommit(p, nodes[p].top);
-      --p;
+      p -= 1;
     }
   }
   uncover(i);

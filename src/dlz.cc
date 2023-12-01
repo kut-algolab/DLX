@@ -1,5 +1,4 @@
 #include "SAPPOROBDD/include/ZBDD.h"
-
 #include <iostream>
 #include <sstream>
 #include <vector>
@@ -80,7 +79,8 @@ struct DLZ {
   std::vector<node> nodes;
   std::unordered_map<std::string, int> names;
   std::vector<std::string> colors;
-  std::vector<int> opt_number = {1};
+  //std::vector<int> opt_number = {1};
+  std::vector<int> opt_number;
   std::vector<inx> siginx;
   ullng cacheptr = 0;
   unsigned sigsiz = 0;
@@ -113,9 +113,10 @@ struct DLZ {
   
   ZBDD search();
   int select_item();
-  std::vector<std::vector<int>> collect_options(const int);
+  std::vector<std::vector<int> > collect_options(const int);
   
   void print_table();
+  void debug();
   DLZ() {}
 };
 
@@ -128,7 +129,7 @@ void DLZ::init() {
 
   colors.push_back("-");
 
-  // opt_number.push_back(1);
+  opt_number.push_back(1);
 
   cache = (ullng*)malloc(CACHESIZE * sizeof(ullng));
   if (NULL == cache) exit(1);
@@ -185,7 +186,7 @@ void DLZ::add_header_for_secondary() {
 
 void DLZ::init_nodes() {
   for (int i = 1; i <= N1+N2; ++i) {
-    node node(0, i, i, DUMMY);
+    node node(0, i, i, 0);
     nodes.push_back(node);
     Z += 1;
   }
@@ -386,8 +387,8 @@ int DLZ::select_item() {
   return i;
 }
 
-std::vector<std::vector<int>> DLZ::collect_options(const int i) {
-  std::vector<std::vector<int>> O;
+std::vector<std::vector<int> > DLZ::collect_options(const int i) {
+  std::vector<std::vector<int> > O;
   int p = nodes[i].dlink;
   while (i != p) {
     std::vector<int> o;
@@ -558,9 +559,9 @@ void DLZ::prepare_signature() {
 	// inx tmp(rand(), 1+i, r, names[colors[i]]);
 	inx tmp(rand(), q, r, 1+i, names[colors[i]]);
 	siginx.push_back(tmp);
-	items[k].sig = sigptr;
 	// siginx[items[k].sig].wd = q;
       }
+      items[k].sig = sigptr;
       sigptr += cc;
       r += t;
     }
@@ -577,7 +578,8 @@ unsigned DLZ::compute_signature() {
   for (int k = items[N1+N2+1].llink; k != N1+N2+1; k = items[k].llink) {
     if (nodes[k].top == 0) continue;
     sig = items[k].sig;
-    offset = siginx[items[k].sig].wd;
+    //printf("k = %d, sig = %d, offset = %d\n", k, sig, offset);
+    offset = siginx[sig].wd;
     while (off < offset) {
       cache[cacheptr+off] = sigacc | SIGNBIT;
       // printf("(S) cacheptr = %u, off = %d, sigacc | SIGNBIT = %llu\n", cacheptr, off, sigacc | SIGNBIT);
@@ -615,13 +617,15 @@ std::pair<bool, int> DLZ::hash_lookup(unsigned sighash) {
     for (unsigned l = 0; l < sigsiz-1; ++l) {
       if (cache[s+l] != cache[cacheptr+l+1]) break;
       if (0 != (cache[s+l] & SIGNBIT)) continue;
-      return {true, h};
+      //return {true, h};
+      return std::make_pair(true, h);
     }
     h = (h + hh) & HASHMASK;
   }
   hash[h] = cacheptr + 1;
   cacheptr += sigsiz;
-  return {false, h};
+  //return {false, h};
+  return std::make_pair(false, h);
 }
 
 ZBDD DLZ::search() {
@@ -646,7 +650,7 @@ ZBDD DLZ::search() {
   ZBDD z = ZBDD(0);
   // collect the set of remaining options having i
   cover(i);
-  std::vector<std::vector<int>> O = collect_options(i);
+  std::vector<std::vector<int> > O = collect_options(i);
   for (auto X : O) {
     opt_number.push_back(std::abs(nodes[X[0]-1].top)+1);
     for (int p = X[0]+1; X[0] != p; ) {
@@ -678,6 +682,14 @@ ZBDD DLZ::search() {
   return z * ZBDD(1).Change(opt_number.back());
 }
 
+void DLZ::debug() {
+  for (unsigned i = 0; i < items.size(); ++i) {
+    std::cout << "i " << i << " " << items[i].name <<
+      " " << items[i].llink << " " << items[i].rlink
+	      << " " << items[i].sig << std::endl;
+  }
+}
+
 int main()
 {
   DLZ d;
@@ -687,6 +699,7 @@ int main()
   BDD_Init(1024, 1024 * 1024 * 1024);  
   for (int i = 0; i < d.opt_number.back(); ++i) BDD_NewVar();
   d.prepare_signature();
+  // d.debug();
   
   ZBDD z = d.search();
   std::cout << z.Card() << std::endl;

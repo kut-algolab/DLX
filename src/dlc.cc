@@ -27,10 +27,6 @@ struct node {
       
   node(int t, int up, int down, int color) :
     top(t), ulink(up), dlink(down), color(color) {}
-
-  void set_ulink(int up) { ulink = up; }
-  void set_dlink(int down) { dlink = down; }
-  void set_color(int c) { color = c; }
 };
 
 struct item {
@@ -67,6 +63,7 @@ struct DLC {
   bool print_flag = false;
   
   /*** member functions ***/
+  void init();
   void read_instance();
   void add_primary_to_header(std::string);
   void init_secondary_header();
@@ -94,18 +91,19 @@ struct DLC {
   void print_all_solutions();
   ullng get_num_of_solutions() { return sols; };
   
-  DLC() {
-    // printf("Start!\n");
-    
-    item itm('0');
-    items.push_back(itm);
-
-    node node('0');
-    nodes.push_back(node);
-
-    colors.push_back("-");
-  }
+  DLC() {}
 };
+
+void DLC::init() {
+  item itm('0');
+  items.push_back(itm);
+
+  node node('0');
+  nodes.push_back(node);
+
+  colors.push_back("-");
+}
+
 
 // // Primary items are must inserted before secondary items.
 void DLC::add_primary_to_header(std::string name) {
@@ -567,6 +565,7 @@ void DLC::print_all_solutions() {
 int main()
 {
   DLC d;
+  d.init();
   d.read_instance();
   // d.print_table();
   // d.print_all_solutions();

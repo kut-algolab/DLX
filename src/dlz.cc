@@ -666,12 +666,13 @@ ZBDD DLZ::search() {
   for (auto X : O) {
     opt_number.push_back(std::abs(nodes[X[0]-1].top)+1);
     for (int p = X[0]+1; X[0] != p; ) {
-      if (nodes[p].top <= 0) {
+      const int j = nodes[p].top;
+      if (j <= 0) {
 	p = nodes[p].ulink;
 	continue;
       }
-      if (nodes[p].top <= N1 || 0 != nodes[nodes[p].top].top)
-	commit(p, nodes[p].top);
+      if (j <= N1 || 0 != nodes[j].top)
+	commit(p, j);
       p += 1;
     }
 
@@ -679,12 +680,13 @@ ZBDD DLZ::search() {
 
     opt_number.pop_back();
     for (int p = X[0]-1; X[0] != p; ) {
-      if (nodes[p].top <= 0) {
+      const int j = nodes[p].top;
+      if (j <= 0) {
 	p = nodes[p].dlink;
 	continue;
       }
-      if (nodes[p].top <= N1 || 0 != nodes[nodes[p].top].top)
-	uncommit(p, nodes[p].top);
+      if (j <= N1 || 0 != nodes[j].top)
+	uncommit(p, j);
       p -= 1;
     }
   }

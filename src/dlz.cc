@@ -1,4 +1,5 @@
 #include "SAPPOROBDD/include/ZBDD.h"
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <vector>
@@ -153,18 +154,13 @@ void DLZ::add_primary_to_header(std::string name) {
 // N = N1 + N2
 void DLZ::add_secondary_to_header(std::string name) {
   const int i = N1 + N2 + 1;
-  item itm(name);
-  names[name] = i;
+  item itm(name, i-1, N1+1);
   items.push_back(itm);
-  if (0 == N2) {
-    items[i].llink = i;
-    items[i].rlink = i;
-  } else {
-    items[i].llink = i-1;
-    items[i].rlink = N1+1;
-    items[N1+i].llink = i;
-    items[i-1].rlink = i;
-  }
+  if (0 == N2) items[i].llink = N1+1;
+
+  items[items[i].llink].rlink = i;
+  items[N1+1].llink = i;
+  names[name] = i;
   ++N2;
 }
 
@@ -281,91 +277,95 @@ void DLZ::print_table() {
   }
 }
 
-// FIXME; we must check the syntax of the first line
 void DLZ::read_instance() {
   N1 = N2 = 0;
   std::string line;
+  std::set<std::string> input_items;
 
   // read the first line (primary and secondary items)
   while (std::getline(std::cin, line)) {
-    // FIXME; we must remove leading white spaces
-    if ('|' == line[0]) continue;
-
     std::string s;
-    std::set<std::string> items;
     std::istringstream iss(line);
+    // remove if comment line
+    iss >> s;
+    if ("|" == s) continue;
+    iss.clear();
+    iss.str(line); // reset input
+
     // read primary items
-    while (iss >> s) {
-      if (items.count(s)) {
-	std::cerr << "The item \"" << s << "\" already exists!\n";
+    while (iss >> s && s != "|") {
+      if (input_items.count(s)) {
+	std::cerr << "The item \"" << s << "\" already exists!" << std::endl;
 	exit(1);
       }
-      if ("|" == s) {
-	break;
-      }
-      items.insert(s);
+      input_items.insert(s);
       add_primary_to_header(s);
     }
 
     // read secondary items
     while (iss >> s) {
-      if (items.count(s)) {
-	std::cerr << "The item \"" << s << "\" already exists!\n";
+      if (input_items.count(s)) {
+	std::cerr << "The item \"" << s << "\" already exists!" << std::endl;
 	exit(1);
       }
-      items.insert(s);
+      input_items.insert(s);
       add_secondary_to_header(s);
     }
     add_header_for_secondary();
     break;
   }
-  
   init_nodes();
-  printf("%d + %d items successfully read\n", N1, N2);
+  // printf("%d + %d items successfully read\n", N1, N2);
 
   // read options
   int ptr_spacer = Z;
   while (std::getline(std::cin, line)) {
-    // std::cout << Z << ": " << line << std::endl;
-    if ('|' == line[0]) {
-      continue;
-    }
-    if (++opt_number.back() >= BDD_MaxVar) {
-      std::cerr << "Option limit is " << BDD_MaxVar << std::endl;
-      exit(1);
-    }
     std::istringstream iss(line);
     std::string s;
+    // remove if comment
+    iss >> s;
+    if (s == "|") continue;
+    iss.clear();
+    iss.str(line);
+    
     while (iss >> s) {
       int c = 0;
-      std::string namae = "";
+      std::string name = s;
       std::string color = "";
-      int pos;
-      // if (std::string::npos != (pos = std::string(s).find(':'))) { // with color
-      if (-1 != (pos = std::string(s).find(':'))) { // with color
-	for (int i = 0; i < pos; ++i) namae += s[i];
-	for (unsigned i = pos+1; i < s.size(); ++i) color += s[i];
-	unsigned i = 0;
-	for ( ; i < colors.size(); ++i)
-	  if (color == colors[i]) break;
-	if (colors.size() == i) colors.push_back(color);
-	c = i;
-      } else {
-	namae = s;
+      std::string::size_type pos = s.find(":");
+      if (std::string::npos != pos) { // with color
+	name = s.substr(0, pos);
+	color = s.substr(pos+1);
+	if (names[name] <= N1) {
+	  std::cerr << "The item \"" << name << "\" is primary or not found!" << std::endl;
+	  exit(1);
+	}
+	auto it = std::find(colors.begin(), colors.end(), color);
+	if (it == colors.end()) { // new color
+	  colors.push_back(color);
+	  it = std::prev(colors.end());
+	}
+	c = std::distance(colors.begin(), it);
       }
-
-      int t = names[namae]; // the id of the item whose name is name
+      if (!input_items.count(name)) {
+	std::cerr << "The item \"" << name << "\" is not found" << std::endl;
+	exit(1);
+      }
+      if (++opt_number.back() >= BDD_MaxVar) {
+	std::cerr << "Option limit is " << BDD_MaxVar << std::endl;
+	exit(1);
+      }
+      // FIXME; duplicate input?
+      int t = names[name];
       int u = nodes[t].ulink;
       node tmp(t, u, t, c);
-      const int x = Z + 1;
-      
       nodes.push_back(tmp);
+      const int x = Z + 1;
       nodes[u].dlink = x;
       nodes[t].ulink = x;
-      nodes[t].top += 1;
+      ++nodes[t].top;
       ++Z;
     }
-    
     // add spacer node
     node tmp(nodes[ptr_spacer].top-1, ptr_spacer+1, DUMMY, 0);
     nodes[ptr_spacer].dlink = Z;
@@ -374,8 +374,6 @@ void DLZ::read_instance() {
     ptr_spacer = Z;
   }
 }
-
-
 
 // select item i using the MRV heuristic
 // if there is item i to be covered and its len is 0, then return -1
@@ -539,7 +537,8 @@ void DLZ::prepare_signature() {
   for (int k = N1+N2; 0 != k; --k) {
     if (k <= N1) { // primary item
       if (63 == r) ++q, r = 0;
-      inx tmp(rand(), q, r, 1, names[colors[k]]);
+      //inx tmp(rand(), q, r, 1, names[items[k]]);
+      inx tmp(rand(), q, r, 1, 0);
       siginx.push_back(tmp);
       items[k].sig = sigptr;
       ++sigptr;
@@ -713,7 +712,7 @@ int main()
   d.init();
   d.read_instance();
   // d.print_table();
-  BDD_Init(1024, 1024 * 1024 * 1024);  
+  BDD_Init(1024, 1024 * 1024 * 1024);
   for (int i = 0; i < d.opt_number.back(); ++i) BDD_NewVar();
   d.prepare_signature();
   // d.debug();

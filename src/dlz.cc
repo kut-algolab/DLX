@@ -2,7 +2,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <unordered_set>
+#include <set>
 #include <map>
 
 #define DUMMY (1U << 31) - 1
@@ -292,7 +292,7 @@ void DLZ::read_instance() {
     if ('|' == line[0]) continue;
 
     std::string s;
-    std::unordered_set<std::string> items;
+    std::set<std::string> items;
     std::istringstream iss(line);
     // read primary items
     while (iss >> s) {
@@ -554,7 +554,7 @@ void DLZ::prepare_signature() {
       nodes[k].color = 0;
       unsigned cc = 1;
       {
-	std::unordered_set<llng> usedcolor;
+	std::set<llng> usedcolor;
 	for (int p = nodes[k].dlink; k != p; p = nodes[p].dlink) {
 	  int i = nodes[p].color;
 	  if (0 != i) {

@@ -1,7 +1,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <unordered_set>
+#include <set>
 #include <map>
 
 #define DUMMY (1U << 31) - 1
@@ -257,7 +257,7 @@ void DLC::read_instance() {
     if ('|' == line[0]) continue;
 
     std::string s;
-    std::unordered_set<std::string> items;
+    std::set<std::string> items;
     std::istringstream iss(line);
     // read primary items
     while (iss >> s) {

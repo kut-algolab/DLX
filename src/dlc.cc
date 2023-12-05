@@ -2,7 +2,7 @@
 #include <sstream>
 #include <vector>
 #include <unordered_set>
-#include <unordered_map>
+#include <map>
 
 #define DUMMY (1U << 31) - 1
 
@@ -50,13 +50,13 @@ struct item {
 
 struct DLC {
   /*** data members ***/
-  int N1 = 0; // # of primary items
-  int N2 = 0; // # of secondary items
-  int Z = 0;  // last spacer address
+  int N1; // # of primary items
+  int N2; // # of secondary items
+  int Z;  // last spacer address
 
   std::vector<item> items;
   std::vector<node> nodes;
-  std::unordered_map<std::string, int> names;
+  std::map<std::string, int> names;
   std::vector<std::string> colors;
 
   ullng sols = 0; // # of solutions
@@ -248,7 +248,7 @@ void DLC::print_table() {
 
 // FIXME; we must check the syntax of the first line
 void DLC::read_instance() {
-  N1 = N2 = 0;
+  N1 = N2 = Z = 0;
   std::string line;
 
   // read the first line (primary and secondary items)
@@ -566,6 +566,7 @@ int main()
 {
   DLC d;
   d.init();
+  printf("hoge\n");
   d.read_instance();
   // d.print_table();
   // d.print_all_solutions();

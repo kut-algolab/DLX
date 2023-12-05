@@ -3,7 +3,7 @@
 #include <sstream>
 #include <vector>
 #include <unordered_set>
-#include <unordered_map>
+#include <map>
 
 #define DUMMY (1U << 31) - 1
 #define SIGNBIT   (1ULL << 63)
@@ -78,7 +78,7 @@ struct DLZ {
 
   std::vector<item> items;
   std::vector<node> nodes;
-  std::unordered_map<std::string, int> names;
+  std::map<std::string, int> names;
   std::vector<std::string> colors;
   //std::vector<int> opt_number = {1};
   std::vector<int> opt_number;
@@ -321,6 +321,7 @@ void DLZ::read_instance() {
   }
   
   init_nodes();
+  printf("%d + %d items successfully read\n", N1, N2);
 
   // read options
   int ptr_spacer = Z;

@@ -6,7 +6,7 @@
 #include <set>
 #include <map>
 
-#define DUMMY (1U << 31) - 1
+#define DUMMY     (1U << 31) - 1
 #define SIGNBIT   (1ULL << 63)
 #define LOG_HASHSIZE 30
 #define HASHSIZE  (1 << LOG_HASHSIZE)
@@ -351,10 +351,6 @@ void DLZ::read_instance() {
 	std::cerr << "The item \"" << name << "\" is not found" << std::endl;
 	exit(1);
       }
-      if (++opt_number.back() >= BDD_MaxVar) {
-	std::cerr << "Option limit is " << BDD_MaxVar << std::endl;
-	exit(1);
-      }
       // FIXME; duplicate input?
       int t = names[name];
       int u = nodes[t].ulink;
@@ -365,6 +361,10 @@ void DLZ::read_instance() {
       nodes[t].ulink = x;
       ++nodes[t].top;
       ++Z;
+    }
+    if (++opt_number.back() >= BDD_MaxVar) {
+      std::cerr << "Option limit is " << BDD_MaxVar << std::endl;
+      exit(1);
     }
     // add spacer node
     node tmp(nodes[ptr_spacer].top-1, ptr_spacer+1, DUMMY, 0);
@@ -537,8 +537,8 @@ void DLZ::prepare_signature() {
   for (int k = N1+N2; 0 != k; --k) {
     if (k <= N1) { // primary item
       if (63 == r) ++q, r = 0;
-      //inx tmp(rand(), q, r, 1, names[items[k]]);
-      inx tmp(rand(), q, r, 1, 0);
+      // inx tmp(rand(), q, r, 1, 0);
+      inx tmp(rand(), q, r, 1, k);
       siginx.push_back(tmp);
       items[k].sig = sigptr;
       ++sigptr;
@@ -616,7 +616,7 @@ unsigned DLZ::compute_signature() {
   }
   cache[cacheptr+off] = sigacc;
   // printf("(#) cacheptr = %u, off = %d, sigacc = %llu\n", cacheptr, off, sigacc);
-  
+
   return sighash;
 }
 
@@ -658,7 +658,7 @@ ZBDD DLZ::search() {
     // std::cout << "cache hit!" << std::endl;
     return ZDD[cache[hash[t.second]-1]]*ZBDD(1).Change(opt_number.back());
   }
-  
+
   ZBDD z = ZBDD(0);
   // collect the set of remaining options having i
   cover(i);
@@ -691,7 +691,7 @@ ZBDD DLZ::search() {
     }
   }
   uncover(i);
-  
+
   cache[hash[t.second]-1] = ZDD.size();
   ZDD.push_back(z);
 
@@ -711,14 +711,17 @@ int main()
   DLZ d;
   d.init();
   d.read_instance();
-  // d.print_table();
+  d.print_table();
   BDD_Init(1024, 1024 * 1024 * 1024);
   for (int i = 0; i < d.opt_number.back(); ++i) BDD_NewVar();
   d.prepare_signature();
   // d.debug();
-  
+
   ZBDD z = d.search();
-  std::cout << z.Card() << std::endl;
+
+  ullng sols = z.Card();
+  if (bddnull == sols) std::cout << "0x" << z.CardMP16(NULL) << std::endl;
+  else std::cout << sols << std::endl;
 
   return 0;
 }

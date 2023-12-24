@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <stack>
 #include <set>
 #include <map>
 
@@ -81,12 +82,11 @@ struct DLZ {
   std::vector<node> nodes;
   std::map<std::string, int> names;
   std::vector<std::string> colors;
-  //std::vector<int> opt_number = {1};
-  std::vector<int> opt_number;
   std::vector<inx> siginx;
+  std::vector<ZBDD> ZDD;
+  std::stack<int> opt_number;
   ullng cacheptr = 0;
   unsigned sigsiz = 0;
-  std::vector<ZBDD> ZDD;
   ullng *cache;
   int *hash;
   
@@ -115,7 +115,7 @@ struct DLZ {
   
   ZBDD search();
   int select_item();
-  std::vector<std::vector<int> > collect_options(const int);
+  std::stack<int> collect_options(const int);
   
   void print_table();
   void debug();
@@ -131,7 +131,7 @@ void DLZ::init() {
 
   colors.push_back("-");
 
-  opt_number.push_back(1);
+  opt_number.push(1);
 
   cache = (ullng*)malloc(CACHESIZE * sizeof(ullng));
   if (NULL == cache) exit(1);
@@ -140,7 +140,7 @@ void DLZ::init() {
 }
 
 
-// // Primary items are must inserted before secondary items.
+// Primary items are must inserted before secondary items.
 void DLZ::add_primary_to_header(std::string name) {
   const int i = N1 + 1;
   item itm(name, i-1, 0);
@@ -362,7 +362,7 @@ void DLZ::read_instance() {
       ++nodes[t].top;
       ++Z;
     }
-    if (++opt_number.back() >= BDD_MaxVar) {
+    if (++opt_number.top() >= BDD_MaxVar) {
       std::cerr << "Option limit is " << BDD_MaxVar << std::endl;
       exit(1);
     }
@@ -386,27 +386,16 @@ int DLZ::select_item() {
   // }
   // if (0 == nodes[i].top) return -1;
   // return i;
-  if (0 == items[0].rlink) return -1;
+
   return items[0].rlink;
 }
 
-std::vector<std::vector<int> > DLZ::collect_options(const int i) {
-  std::vector<std::vector<int> > O;
-  int p = nodes[i].dlink;
+std::stack<int> DLZ::collect_options(const int i) {
+  std::stack<int> O;
+  int p = nodes[i].ulink;
   while (i != p) {
-    std::vector<int> o;
-    o.push_back(p);
-    int q = p+1;
-    while (p != q) {
-      if (nodes[q].top <= 0) {
-	q = nodes[q].ulink;
-	continue;
-      }
-      o.push_back(q);
-      q += 1;
-    }
-    O.push_back(o);
-    p = nodes[p].dlink;
+    O.push(p);
+    p = nodes[p].ulink;
   }
   return O;
 }
@@ -537,7 +526,6 @@ void DLZ::prepare_signature() {
   for (int k = N1+N2; 0 != k; --k) {
     if (k <= N1) { // primary item
       if (63 == r) ++q, r = 0;
-      // inx tmp(rand(), q, r, 1, 0);
       inx tmp(rand(), q, r, 1, k);
       siginx.push_back(tmp);
       items[k].sig = sigptr;
@@ -620,6 +608,7 @@ unsigned DLZ::compute_signature() {
   return sighash;
 }
 
+// return hit or miss and cache address
 std::pair<bool, int> DLZ::hash_lookup(unsigned sighash) {
   // double hash <h, hh>
   int h = sighash & HASHMASK;
@@ -629,73 +618,73 @@ std::pair<bool, int> DLZ::hash_lookup(unsigned sighash) {
     for (unsigned l = 0; l < sigsiz-1; ++l) {
       if (cache[s+l] != cache[cacheptr+l+1]) break;
       if (0 != (cache[s+l] & SIGNBIT)) continue;
-      //return {true, h};
-      return std::make_pair(true, h);
+      //return {true, hash[h]-1};
+      return std::make_pair(true, hash[h]-1);
     }
     h = (h + hh) & HASHMASK;
   }
   hash[h] = cacheptr + 1;
   cacheptr += sigsiz;
-  //return {false, h};
-  return std::make_pair(false, h);
+  //return {false, hash[h]-1};
+  return std::make_pair(false, hash[h]-1);
 }
 
 ZBDD DLZ::search() {
+  const int opt = opt_number.top();
   if (0 == items[0].rlink) {
     // std::cout << "find answer" << std::endl;
-    return ZBDD(1).Change(opt_number.back());
+    return ZBDD(1).Change(opt);
   }
-
-  // select item i
-  const int i = select_item();
-  if (-1 == i) {
-    return ZBDD(0);
-  }
-
+  
   unsigned s = compute_signature();
   std::pair<bool, int> t = hash_lookup(s);
   if (t.first) {
     // std::cout << "cache hit!" << std::endl;
-    return ZDD[cache[hash[t.second]-1]]*ZBDD(1).Change(opt_number.back());
+    return ZDD[cache[t.second]]*ZBDD(1).Change(opt);
   }
-
-  ZBDD z = ZBDD(0);
+  
+  // select item i
+  const int i = select_item();
+  
   // collect the set of remaining options having i
+  std::stack<int> O = collect_options(i);
+  ZBDD z = ZBDD(0);
+
   cover(i);
-  std::vector<std::vector<int> > O = collect_options(i);
-  for (auto X : O) {
-    opt_number.push_back(std::abs(nodes[X[0]-1].top)+1);
-    for (int p = X[0]+1; X[0] != p; ) {
+  while (!O.empty()) {
+    for (int p = O.top()+1; O.top() != p; ) {
       const int j = nodes[p].top;
-      if (j <= 0) {
+      if (0 >= j) {
+	opt_number.push(-j);
 	p = nodes[p].ulink;
 	continue;
       }
-      if (j <= N1 || 0 != nodes[j].top)
+      if (N1 >= j || 0 != nodes[j].top)
 	commit(p, j);
-      p += 1;
+      ++p;
     }
 
     z += search();
-
-    opt_number.pop_back();
-    for (int p = X[0]-1; X[0] != p; ) {
+    
+    for (int p = O.top()-1; O.top() != p; ) {
       const int j = nodes[p].top;
-      if (j <= 0) {
+      if (0 >= j) {
+	opt_number.pop();
 	p = nodes[p].dlink;
 	continue;
       }
-      if (j <= N1 || 0 != nodes[j].top)
+      if (N1 >= j || 0 != nodes[j].top)
 	uncommit(p, j);
-      p -= 1;
+      --p;
     }
+    O.pop();
   }
   uncover(i);
 
-  cache[hash[t.second]-1] = ZDD.size();
+  cache[t.second] = ZDD.size();
   ZDD.push_back(z);
 
-  return z * ZBDD(1).Change(opt_number.back());
+  return z * ZBDD(1).Change(opt);
 }
 
 void DLZ::debug() {
@@ -711,9 +700,9 @@ int main()
   DLZ d;
   d.init();
   d.read_instance();
-  d.print_table();
+  // d.print_table();
   BDD_Init(1024, 1024 * 1024 * 1024);
-  for (int i = 0; i < d.opt_number.back(); ++i) BDD_NewVar();
+  for (int i = d.opt_number.top(); i > 0; --i) BDD_NewVar();
   d.prepare_signature();
   // d.debug();
 

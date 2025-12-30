@@ -300,17 +300,19 @@ void DLC::read_instance() {
       int c = 0;
       std::string namae = "";
       std::string color = "";
-      int pos;
+      size_t pos;
+      // size_t pos = s.find(':');
       if (std::string::npos != (pos = std::string(s).find(':'))) { // with color
-	for (int i = 0; i < pos; ++i) namae += s[i];
-	for (int i = pos+1; i < s.size(); ++i) color += s[i];
-	int i = 0;
-	for ( ; i < colors.size(); ++i)
-	  if (color == colors[i]) break;
-	if (colors.size() == i) colors.push_back(color);
-	c = i;
+      // if (pos != std::string::npos) {
+	      for (size_t i = 0; i < pos; ++i) namae += s[i];
+	      for (size_t i = pos+1; i < s.size(); ++i) color += s[i];
+	      size_t i = 0;
+	      for ( ; i < colors.size(); ++i)
+	        if (color == colors[i]) break;
+	      if (colors.size() == i) colors.push_back(color);
+	      c = i;
       } else {
-	namae = s;
+	      namae = s;
       }
 
       int t = names[namae]; // the id of the item whose name is name
@@ -478,8 +480,8 @@ void DLC::search(std::vector<int> &R) {
 
     for (int p = X[0]+1; X[0] != p; ) {
       if (nodes[p].top <= 0) {
-	p = nodes[p].ulink;
-	continue;
+	      p = nodes[p].ulink;
+	      continue;
       }
       commit(p, nodes[p].top);
       ++p;
@@ -489,8 +491,8 @@ void DLC::search(std::vector<int> &R) {
 
     for (int p = X[0]-1; X[0] != p; ) {
       if (nodes[p].top <= 0) {
-	p = nodes[p].dlink;
-	continue;
+	      p = nodes[p].dlink;
+	      continue;
       }
       uncommit(p, nodes[p].top);
       --p;
@@ -538,7 +540,7 @@ void DLC::print_option(int p) {
     else {
       std::cout << ", " << items[nodes[q].top].name;
       if (0 != nodes[q].color) {
-	std::cout << ":" << colors[nodes[nodes[q].top].color];
+	      std::cout << ":" << colors[nodes[nodes[q].top].color];
       }
       q += 1;
     }
@@ -549,7 +551,7 @@ void DLC::print_option(int p) {
 void DLC::print_options(std::vector<int> &R) {
   std::cout << "{";
   print_option(R[0]);
-  for (int i = 1; i < R.size(); ++i) {
+  for (unsigned i = 1; i < R.size(); ++i) {
     std::cout << ", ";
     print_option(R[i]);
   }
